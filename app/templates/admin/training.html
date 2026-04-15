@@ -351,14 +351,20 @@ function startStream(url, prefix) {
       document.getElementById('curEp').textContent = ep;
       if (data.epsilon !== undefined) document.getElementById('curEps').textContent = data.epsilon;
       if (data.q_table_size !== undefined) document.getElementById('curQSize').textContent = data.q_table_size.toLocaleString();
-      if (data.win_rate_vs_random !== undefined)
+      if (data.win_rate_vs_random !== undefined && data.win_rate_vs_random !== null)
         document.getElementById('curWR').textContent = (data.win_rate_vs_random * 100).toFixed(1) + '%';
       if (data.win_rate_vs_version != null)
         document.getElementById('curWRV').textContent = (data.win_rate_vs_version * 100).toFixed(1) + '%';
       const log = document.getElementById('logBox');
       const line = document.createElement('div');
       line.className = 'log-line' + (data.win_rate_vs_random >= 0.8 ? ' good' : '');
-      line.textContent = `[ep ${ep}] ε=${data.epsilon} | vs_random=${data.win_rate_vs_random !== undefined ? (data.win_rate_vs_random*100).toFixed(1)+'%' : '-'}`;
+      if (data.heartbeat) {
+        line.textContent = `[ep ${ep}] ε=${data.epsilon} | Q=${data.q_table_size?.toLocaleString()} states`;
+      } else {
+        line.textContent = `[ep ${ep}] ε=${data.epsilon} | vs_random=${data.win_rate_vs_random !== null ? (data.win_rate_vs_random*100).toFixed(1)+'%' : '-'}` +
+          (data.avg_q_delta !== undefined ? ` | Δq=${data.avg_q_delta}` : '');
+        line.className = 'log-line' + (data.win_rate_vs_random >= 0.8 ? ' good' : '');
+      }
       log.appendChild(line); log.scrollTop = log.scrollHeight;
     } else {
       const g = data.game_idx || 0, t = data.total || 1;

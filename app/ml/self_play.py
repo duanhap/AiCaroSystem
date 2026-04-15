@@ -9,6 +9,9 @@ from app.ml.evaluator import eval_vs_random, eval_vs_checkpoint
 import random
 
 
+import logging
+logger = logging.getLogger("self_play")
+
 def run_self_play(
     agent: QAgent,
     episodes: int,
@@ -86,6 +89,17 @@ def run_self_play(
 
         agent.decay_epsilon()
 
+        # Emit progress nhẹ mỗi 50 episode (không test, chỉ báo đang chạy)
+        if ep % 50 == 0 and ep % test_interval != 0 and on_progress:
+            on_progress({
+                "episode": ep,
+                "epsilon": round(agent.epsilon, 4),
+                "q_table_size": agent.q_table_size,
+                "win_rate_vs_random": None,
+                "win_rate_vs_version": None,
+                "heartbeat": True,
+            })
+
         # Test định kỳ
         if ep % test_interval == 0 or ep == episodes:
             result_random = eval_vs_random(agent, test_games)
@@ -121,6 +135,18 @@ def run_self_play(
             prev_q_snapshot = current_q_snapshot
 
             logs.append(log_entry)
+
+            # Log ra console để theo dõi từ terminal
+            wr = log_entry['win_rate_vs_random']
+            delta = log_entry.get('avg_q_delta', '-')
+            wrv = log_entry.get('win_rate_vs_version')
+            logger.info(
+                f"[ep {ep:>6}] ε={log_entry['epsilon']:.4f} | "
+                f"Q={log_entry['q_table_size']:>6} states | "
+                f"vs_random={wr:.1%}" +
+                (f" | vs_version={wrv:.1%}" if wrv is not None else "") +
+                (f" | Δq={delta}" if delta != '-' else "")
+            )
 
             if on_progress:
                 on_progress(log_entry)
