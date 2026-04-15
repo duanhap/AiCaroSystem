@@ -35,7 +35,7 @@ def deploy_checkpoint(db: Session, version: str):
 
 def delete_checkpoint(db: Session, version: str):
     cp = checkpoint_repo.get_by_version(db, version)
-    if cp and os.path.exists(cp.file_path):
+    if cp and cp.file_path and os.path.exists(cp.file_path):
         os.remove(cp.file_path)
     return checkpoint_repo.delete(db, version)
 

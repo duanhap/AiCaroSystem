@@ -29,6 +29,9 @@ def deploy(db: Session, version: str):
 def delete(db: Session, version: str):
     cp = get_by_version(db, version)
     if cp:
+        # Xóa training_logs liên quan trước (tránh FK constraint)
+        from app.models.training_log import TrainingLog
+        db.query(TrainingLog).filter(TrainingLog.checkpoint_id == cp.id).delete()
         db.delete(cp)
         db.commit()
     return cp
