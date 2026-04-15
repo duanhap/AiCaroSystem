@@ -1,10 +1,36 @@
 """
 Train từ dữ liệu người chơi đã lưu trong DB (game_steps).
 Không dùng epsilon vì dữ liệu cố định.
+Mỗi ván được replay 2 lần: 1 lần đóng vai X, 1 lần đóng vai O.
 """
 from typing import Callable, Optional, List
 from app.ml.q_agent import QAgent
 from app.ml.evaluator import eval_vs_random, eval_vs_checkpoint
+
+
+def _replay_as_player(agent: QAgent, game_steps: List[dict], play_as: int):
+    """
+    Replay 1 ván từ góc nhìn của 1 bên (play_as = 1 là X, 2 là O).
+
+    Vấn đề 1 (reward): chỉ bước cuối mới có reward thực, các bước giữa = 0.
+    Vấn đề 2 (vai): chỉ update Q cho các bước của play_as, bỏ qua bước đối thủ.
+    Vấn đề 3 (next_state cuối): bước cuối dùng done=True nên next_valid=[] là đúng.
+    """
+    for step in game_steps:
+        if step["player"] != play_as:
+            continue
+
+        # Reward: giữ nguyên nếu là bước cuối (terminal), còn lại = 0
+        reward = step["reward"] if step["done"] else 0.0
+
+        agent.update(
+            state=step["state"],
+            action=step["action"],
+            reward=reward,
+            next_state=step["next_state"],
+            next_valid_actions=step["next_valid_actions"],
+            done=step["done"],
+        )
 
 
 def run_offline_train(
@@ -16,40 +42,28 @@ def run_offline_train(
 ) -> dict:
     """
     Train Q-table từ dữ liệu ván chơi đã lưu.
+    Mỗi ván replay 2 lần: đóng vai X và đóng vai O.
 
     Args:
-        agent: Agent cần train (epsilon sẽ bị set = 0 vì dữ liệu cố định)
-        game_data: List các ván, mỗi ván là list các step:
-                   [{"state": tuple, "action": int, "next_state": tuple,
-                     "reward": float, "done": bool}, ...]
+        agent: Agent cần train
+        game_data: List các ván, mỗi ván là list các step dict
         compare_agent: Agent để so sánh khi test sau train
         test_games: Số ván test sau khi train xong
-        on_progress: Callback(game_idx, total) để stream realtime
-
-    Returns:
-        dict kết quả: win_rate_vs_random, win_rate_vs_version
+        on_progress: Callback({"game_idx": int, "total": int}) để stream realtime
     """
-    # Offline train không cần epsilon
     original_epsilon = agent.epsilon
-    agent.epsilon = 0.0
+    agent.epsilon = 0.0  # offline train không cần explore
 
     total = len(game_data)
 
     for idx, game_steps in enumerate(game_data):
-        for step in game_steps:
-            agent.update(
-                state=step["state"],
-                action=step["action"],
-                reward=step["reward"],
-                next_state=step["next_state"],
-                next_valid_actions=step.get("next_valid_actions", []),
-                done=step["done"],
-            )
+        # Replay 2 lần: học từ cả 2 góc nhìn
+        _replay_as_player(agent, game_steps, play_as=1)  # vai X
+        _replay_as_player(agent, game_steps, play_as=2)  # vai O
 
         if on_progress:
             on_progress({"game_idx": idx + 1, "total": total})
 
-    # Khôi phục epsilon
     agent.epsilon = original_epsilon
 
     # Test sau khi train xong
@@ -68,12 +82,11 @@ def run_offline_train(
 def load_game_data_from_db(db, game_ids: List[int]) -> List[List[dict]]:
     """
     Đọc game_steps từ DB và chuyển thành format cho offline_train.
+    Mỗi step có thêm field "player" để biết X hay O đánh bước đó.
     """
     from app.repositories.game_repo import get_steps
-    from app.ml.environment import CaroEnv
 
     all_games = []
-    env = CaroEnv()
 
     for game_id in game_ids:
         steps = get_steps(db, game_id)
@@ -81,23 +94,29 @@ def load_game_data_from_db(db, game_ids: List[int]) -> List[List[dict]]:
             continue
 
         game_steps = []
-        for i, step in enumerate(steps):
-            is_last = (i == len(steps) - 1)
-            next_state = tuple(steps[i + 1].state) if not is_last else tuple(step.state)
+        n = len(steps)
 
-            # Tính next_valid_actions từ next_state
-            if not is_last:
-                next_valid = [j for j, v in enumerate(next_state) if v == 0]
-            else:
-                next_valid = []
+        for i, step in enumerate(steps):
+            is_last = (i == n - 1)
+
+            # Vấn đề 3: next_state bước cuối dùng state terminal thực sự
+            next_state = tuple(steps[i + 1].state) if not is_last else tuple(step.state)
+            next_valid = [j for j, v in enumerate(next_state) if v == 0] if not is_last else []
+
+            # step_number bắt đầu từ 1: lẻ = X đánh, chẵn = O đánh
+            player = 1 if step.step_number % 2 == 1 else 2
+
+            # Reward thực chỉ ở bước cuối, các bước giữa = 0
+            reward = float(step.reward) if is_last else 0.0
 
             game_steps.append({
                 "state": tuple(step.state) if isinstance(step.state, list) else step.state,
                 "action": step.action,
                 "next_state": next_state,
                 "next_valid_actions": next_valid,
-                "reward": step.reward,
+                "reward": reward,
                 "done": is_last,
+                "player": player,
             })
 
         all_games.append(game_steps)

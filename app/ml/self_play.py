@@ -6,6 +6,7 @@ from typing import Callable, Optional
 from app.ml.environment import CaroEnv, X, O
 from app.ml.q_agent import QAgent
 from app.ml.evaluator import eval_vs_random, eval_vs_checkpoint
+import random
 
 
 def run_self_play(
@@ -17,6 +18,7 @@ def run_self_play(
     win_rate_target: float = 0.9,
     compare_agent: Optional[QAgent] = None,
     on_progress: Optional[Callable] = None,
+    convergence_threshold: float = 0.001,
 ) -> dict:
     """
     Chạy self-play training.
@@ -30,6 +32,7 @@ def run_self_play(
         win_rate_target: Ngưỡng early stopping
         compare_agent: Agent để so sánh khi test (None = chỉ test vs random)
         on_progress: Callback(episode, epsilon, q_size, test_result) để stream realtime
+        convergence_threshold: Delta Q trung bình < ngưỡng này thì coi là hội tụ
 
     Returns:
         dict kết quả cuối: win_rate_vs_random, win_rate_vs_version, logs
@@ -37,6 +40,7 @@ def run_self_play(
     env = CaroEnv()
     logs = []
     final_result = {}
+    prev_q_snapshot = {}
 
     for ep in range(1, episodes + 1):
         state = env.reset()
@@ -45,32 +49,35 @@ def run_self_play(
         # Xác định đối thủ cho ván này
         opp = opponent if opponent is not None else agent
 
+        # Random vai: ván lẻ agent=X (đi trước), ván chẵn agent=O (đi sau)
+        # Giúp agent học cả 2 phía tấn công và phản công
+        agent_plays_x = (ep % 2 == 1)
+
         while not done:
             valid = env.get_valid_actions()
             if not valid:
                 break
 
-            # X đánh (agent đang train)
-            action = agent.choose_action(state, valid)
-            next_state, reward, done = env.step(action)
-            next_valid = env.get_valid_actions() if not done else []
-            agent.update(state, action, reward, next_state, next_valid, done)
-            state = next_state
+            # Xác định ai đánh lượt này dựa vào current_player của env
+            current_is_agent = (env.current_player == X) == agent_plays_x
 
-            if done:
-                break
-
-            valid = env.get_valid_actions()
-            if not valid:
-                break
-
-            # O đánh (opponent)
-            action_o = opp.choose_action(state, valid)
-            next_state, reward_o, done = env.step(action_o)
-
-            # Nếu O thắng → X thua → cập nhật Q với reward âm
-            if done and reward_o == 1.0:
-                agent.update(state, action_o, -1.0, next_state, [], done)
+            if current_is_agent:
+                # Lượt của agent → luôn update Q
+                action = agent.choose_action(state, valid)
+                next_state, reward, done = env.step(action)
+                next_valid = env.get_valid_actions() if not done else []
+                agent.update(state, action, reward, next_state, next_valid, done)
+            else:
+                # Lượt của opponent
+                action = opp.choose_action(state, valid)
+                next_state, reward, done = env.step(action)
+                if opponent is None:
+                    # Self-play vs chính nó: học cả 2 phía để hội tụ nhanh hơn
+                    next_valid = env.get_valid_actions() if not done else []
+                    agent.update(state, action, reward, next_state, next_valid, done)
+                elif done and reward == 1.0:
+                    # Vs version cũ: opponent thắng → agent thua → phạt
+                    agent.update(state, action, -1.0, next_state, [], done)
 
             state = next_state
 
@@ -90,14 +97,37 @@ def run_self_play(
                 "win_rate_vs_random": round(result_random["win_rate"], 4),
                 "win_rate_vs_version": round(result_version["win_rate"], 4) if result_version else None,
             }
+
+            # Đo Q convergence
+            current_q_snapshot = {k: dict(v) for k, v in agent.q_table.items()}
+            avg_delta = None
+            if prev_q_snapshot:
+                deltas = [
+                    abs(val - prev_q_snapshot[s][a])
+                    for s, actions in current_q_snapshot.items()
+                    if s in prev_q_snapshot
+                    for a, val in actions.items()
+                    if a in prev_q_snapshot[s]
+                ]
+                avg_delta = sum(deltas) / len(deltas) if deltas else 0.0
+                log_entry["avg_q_delta"] = round(avg_delta, 6)
+            prev_q_snapshot = current_q_snapshot
+
             logs.append(log_entry)
 
             if on_progress:
                 on_progress(log_entry)
 
-            # Early stopping
+            # Early stopping: win rate đạt target
             if result_random["win_rate"] >= win_rate_target:
                 final_result["stopped_early"] = True
+                final_result["stop_reason"] = "win_rate_target"
+                break
+
+            # Early stopping: Q hội tụ
+            if avg_delta is not None and avg_delta < convergence_threshold:
+                final_result["stopped_early"] = True
+                final_result["stop_reason"] = "q_converged"
                 break
 
     final_result.update({

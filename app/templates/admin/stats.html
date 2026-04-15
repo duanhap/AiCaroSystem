@@ -1,0 +1,85 @@
+{% extends "admin/base.html" %}
+{% block title %}Stats{% endblock %}
+{% block content %}
+<h4 class="mb-4">📈 Thống kê hệ thống</h4>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="card text-center">
+      <div class="card-body">
+        <h6>Version đang chạy</h6>
+        <h3 class="text-success">{{ deployed.version if deployed else '–' }}</h3>
+        {% if deployed %}
+        <small>vs Random: {{ "%.1f"|format(deployed.win_rate_vs_random * 100) if deployed.win_rate_vs_random else '–' }}%</small>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-center">
+      <div class="card-body">
+        <h6>Tổng checkpoints</h6>
+        <h3>{{ checkpoints|length }}</h3>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Learning Curve -->
+<h5>Learning Curve</h5>
+<div class="mb-2">
+  <select class="form-select w-auto" id="cpSelect" onchange="loadCurve()">
+    <option value="">Chọn checkpoint...</option>
+    {% for cp in checkpoints %}
+    <option value="{{ cp.id }}">{{ cp.version }}</option>
+    {% endfor %}
+  </select>
+</div>
+<canvas id="curveChart" height="80"></canvas>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let curveChart = null;
+
+function loadCurve() {
+  const id = document.getElementById('cpSelect').value;
+  if (!id) return;
+
+  fetch(`/admin/stats/curve/${id}`)
+    .then(r => r.json())
+    .then(data => {
+      if (curveChart) curveChart.destroy();
+      const ctx = document.getElementById('curveChart').getContext('2d');
+      curveChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: data.labels,
+          datasets: [
+            {
+              label: 'Win rate vs Random',
+              data: data.win_rate_vs_random.map(v => v ? (v * 100).toFixed(1) : null),
+              borderColor: 'rgb(75, 192, 192)',
+              tension: 0.3,
+              fill: false,
+            },
+            {
+              label: 'Win rate vs Version',
+              data: data.win_rate_vs_version.map(v => v ? (v * 100).toFixed(1) : null),
+              borderColor: 'rgb(255, 159, 64)',
+              tension: 0.3,
+              fill: false,
+            },
+          ]
+        },
+        options: {
+          scales: {
+            y: { min: 0, max: 100, title: { display: true, text: 'Win rate (%)' } },
+            x: { title: { display: true, text: 'Episode' } }
+          }
+        }
+      });
+    });
+}
+</script>
+{% endblock %}

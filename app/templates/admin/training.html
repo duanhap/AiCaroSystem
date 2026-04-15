@@ -1,0 +1,247 @@
+{% extends "admin/base.html" %}
+{% block title %}Training{% endblock %}
+{% block content %}
+<h4 class="mb-4">⚙️ Cấu hình Training</h4>
+
+<!-- Tab chọn chế độ -->
+<ul class="nav nav-tabs mb-3" id="trainTab">
+  <li class="nav-item">
+    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#selfplay">Self-play</button>
+  </li>
+  <li class="nav-item">
+    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#offline">Offline Retrain</button>
+  </li>
+</ul>
+
+<div class="tab-content">
+
+  <!-- SELF-PLAY FORM -->
+  <div class="tab-pane fade show active" id="selfplay">
+    <div class="row g-3" style="max-width:700px">
+      <div class="col-md-6">
+        <label class="form-label">Base model</label>
+        <select class="form-select" id="sp_base">
+          <option value="">Tạo mới</option>
+          {% for cp in checkpoints %}
+          <option value="{{ cp.version }}">{{ cp.version }} ({{ "%.0f"|format(cp.win_rate_vs_random*100 if cp.win_rate_vs_random else 0) }}%)</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Opponent (đấu với ai khi train)</label>
+        <select class="form-select" id="sp_opponent">
+          <option value="self">Chính nó</option>
+          {% for cp in checkpoints %}
+          <option value="{{ cp.version }}">{{ cp.version }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Test vs version</label>
+        <select class="form-select" id="sp_compare">
+          <option value="">Chỉ vs Random</option>
+          {% for cp in checkpoints %}
+          <option value="{{ cp.version }}">{{ cp.version }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Episodes</label>
+        <input type="number" class="form-control" id="sp_episodes" value="5000">
+      </div>
+      <div class="col-md-4"><label class="form-label">Alpha (α)</label>
+        <input type="number" class="form-control" id="sp_alpha" value="0.1" step="0.01"></div>
+      <div class="col-md-4"><label class="form-label">Gamma (γ)</label>
+        <input type="number" class="form-control" id="sp_gamma" value="0.9" step="0.01"></div>
+      <div class="col-md-4"><label class="form-label">ε start</label>
+        <input type="number" class="form-control" id="sp_eps_start" value="1.0" step="0.1"></div>
+      <div class="col-md-4"><label class="form-label">ε min</label>
+        <input type="number" class="form-control" id="sp_eps_min" value="0.01" step="0.01"></div>
+      <div class="col-md-4"><label class="form-label">ε decay</label>
+        <input type="number" class="form-control" id="sp_eps_decay" value="0.995" step="0.001"></div>
+      <div class="col-md-4"><label class="form-label">Test interval</label>
+        <input type="number" class="form-control" id="sp_interval" value="200"></div>
+      <div class="col-md-4"><label class="form-label">Test games</label>
+        <input type="number" class="form-control" id="sp_test_games" value="100"></div>
+      <div class="col-md-4"><label class="form-label">Win rate target (%)</label>
+        <input type="number" class="form-control" id="sp_target" value="90"></div>
+      <div class="col-12">
+        <button class="btn btn-primary" onclick="startSelfPlay()">▶ Bắt đầu Self-play</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- OFFLINE RETRAIN FORM -->
+  <div class="tab-pane fade" id="offline">
+    <div class="row g-3" style="max-width:700px">
+      <div class="col-md-6">
+        <label class="form-label">Base model</label>
+        <select class="form-select" id="of_base">
+          <option value="">Tạo mới</option>
+          {% for cp in checkpoints %}
+          <option value="{{ cp.version }}">{{ cp.version }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Test vs version</label>
+        <select class="form-select" id="of_compare">
+          <option value="">Chỉ vs Random</option>
+          {% for cp in checkpoints %}
+          <option value="{{ cp.version }}">{{ cp.version }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4"><label class="form-label">Alpha (α)</label>
+        <input type="number" class="form-control" id="of_alpha" value="0.1" step="0.01"></div>
+      <div class="col-md-4"><label class="form-label">Gamma (γ)</label>
+        <input type="number" class="form-control" id="of_gamma" value="0.9" step="0.01"></div>
+      <div class="col-md-4"><label class="form-label">Test games</label>
+        <input type="number" class="form-control" id="of_test_games" value="100"></div>
+      <div class="col-12">
+        <label class="form-label">Game IDs (comma-separated)</label>
+        <input type="text" class="form-control" id="of_game_ids" placeholder="1,2,3,4,5">
+        <small class="text-muted">Nhập ID các ván muốn dùng để train</small>
+      </div>
+      <div class="col-12">
+        <button class="btn btn-primary" onclick="startOffline()">▶ Bắt đầu Offline Retrain</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PROGRESS SECTION -->
+<div id="progressSection" class="mt-4 d-none">
+  <hr>
+  <h5>📊 Tiến trình training</h5>
+  <div class="progress mb-2" style="height:24px">
+    <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated"
+         style="width:0%">0%</div>
+  </div>
+  <div class="row mb-2">
+    <div class="col-auto"><span class="badge bg-secondary">Episode: <span id="curEp">0</span></span></div>
+    <div class="col-auto"><span class="badge bg-info">ε: <span id="curEps">-</span></span></div>
+    <div class="col-auto"><span class="badge bg-success">vs Random: <span id="curWR">-</span></span></div>
+    <div class="col-auto"><span class="badge bg-warning text-dark">vs Version: <span id="curWRV">-</span></span></div>
+  </div>
+  <div id="logBox" class="bg-dark text-light p-3 rounded" style="height:200px;overflow-y:auto;font-size:0.85rem;font-family:monospace"></div>
+</div>
+
+<!-- RESULT SECTION -->
+<div id="resultSection" class="mt-4 d-none">
+  <hr>
+  <h5>✅ Kết quả training</h5>
+  <div class="alert alert-success">
+    <div>vs Random Agent: <strong id="resWR">-</strong></div>
+    <div id="resWRVDiv">vs Version: <strong id="resWRV">-</strong></div>
+    <div id="stopReasonDiv" class="text-muted small"></div>
+  </div>
+  <div class="d-flex gap-2">
+    <button class="btn btn-success" onclick="commitAction('deploy')">🚀 Deploy ngay</button>
+    <button class="btn btn-primary" onclick="commitAction('save')">💾 Lưu lại</button>
+    <button class="btn btn-outline-danger" onclick="commitAction('discard')">🗑 Bỏ qua</button>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let totalEpisodes = 5000;
+
+function startSelfPlay() {
+  totalEpisodes = parseInt(document.getElementById('sp_episodes').value);
+  const params = new URLSearchParams({
+    base_version: document.getElementById('sp_base').value,
+    opponent_version: document.getElementById('sp_opponent').value,
+    compare_version: document.getElementById('sp_compare').value,
+    episodes: totalEpisodes,
+    alpha: document.getElementById('sp_alpha').value,
+    gamma: document.getElementById('sp_gamma').value,
+    epsilon_start: document.getElementById('sp_eps_start').value,
+    epsilon_min: document.getElementById('sp_eps_min').value,
+    epsilon_decay: document.getElementById('sp_eps_decay').value,
+    test_interval: document.getElementById('sp_interval').value,
+    test_games: document.getElementById('sp_test_games').value,
+    win_rate_target: document.getElementById('sp_target').value / 100,
+  });
+  startStream(`/admin/training/selfplay/stream?${params}`);
+}
+
+function startOffline() {
+  const params = new URLSearchParams({
+    base_version: document.getElementById('of_base').value,
+    compare_version: document.getElementById('of_compare').value,
+    game_ids: document.getElementById('of_game_ids').value,
+    alpha: document.getElementById('of_alpha').value,
+    gamma: document.getElementById('of_gamma').value,
+    test_games: document.getElementById('of_test_games').value,
+  });
+  startStream(`/admin/training/offline/stream?${params}`);
+}
+
+function startStream(url) {
+  document.getElementById('progressSection').classList.remove('d-none');
+  document.getElementById('resultSection').classList.add('d-none');
+  document.getElementById('logBox').innerHTML = '';
+
+  const es = new EventSource(url);
+  es.onmessage = function(e) {
+    const data = JSON.parse(e.data);
+
+    if (data.status === 'done') {
+      es.close();
+      showResult(data);
+      return;
+    }
+
+    // Cập nhật progress
+    const ep = data.episode || data.game_idx || 0;
+    const total = data.total || totalEpisodes;
+    const pct = Math.round((ep / total) * 100);
+    document.getElementById('progressBar').style.width = pct + '%';
+    document.getElementById('progressBar').textContent = pct + '%';
+    document.getElementById('curEp').textContent = ep;
+    if (data.epsilon !== undefined) document.getElementById('curEps').textContent = data.epsilon;
+    if (data.win_rate_vs_random !== undefined)
+      document.getElementById('curWR').textContent = (data.win_rate_vs_random * 100).toFixed(1) + '%';
+    if (data.win_rate_vs_version !== undefined && data.win_rate_vs_version !== null)
+      document.getElementById('curWRV').textContent = (data.win_rate_vs_version * 100).toFixed(1) + '%';
+
+    // Log box
+    const log = document.getElementById('logBox');
+    log.innerHTML += `ep=${ep} | ε=${data.epsilon ?? '-'} | vs_random=${data.win_rate_vs_random !== undefined ? (data.win_rate_vs_random*100).toFixed(1)+'%' : '-'}\n`;
+    log.scrollTop = log.scrollHeight;
+  };
+}
+
+function showResult(data) {
+  document.getElementById('resultSection').classList.remove('d-none');
+  document.getElementById('progressBar').classList.remove('progress-bar-animated');
+  document.getElementById('progressBar').style.width = '100%';
+  document.getElementById('progressBar').textContent = 'Hoàn tất';
+
+  document.getElementById('resWR').textContent =
+    data.win_rate_vs_random !== null ? (data.win_rate_vs_random * 100).toFixed(1) + '%' : '-';
+  if (data.win_rate_vs_version) {
+    document.getElementById('resWRV').textContent = (data.win_rate_vs_version * 100).toFixed(1) + '%';
+  } else {
+    document.getElementById('resWRVDiv').classList.add('d-none');
+  }
+  if (data.stop_reason) {
+    document.getElementById('stopReasonDiv').textContent =
+      'Dừng sớm: ' + (data.stop_reason === 'win_rate_target' ? 'Đạt win rate target' : 'Q-table hội tụ');
+  }
+}
+
+function commitAction(action) {
+  fetch('/admin/training/commit', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: `action=${action}`
+  }).then(r => r.json()).then(data => {
+    alert(data.message + (data.version ? ` (${data.version})` : ''));
+    window.location.href = '/admin/checkpoints/';
+  });
+}
+</script>
+{% endblock %}

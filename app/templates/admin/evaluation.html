@@ -1,0 +1,57 @@
+{% extends "admin/base.html" %}
+{% block title %}Evaluation{% endblock %}
+{% block content %}
+<h4 class="mb-4">🧪 Test thủ công</h4>
+
+<form method="post" action="/admin/evaluation/run" style="max-width:500px">
+  <div class="mb-3">
+    <label class="form-label">Version cần test</label>
+    <select class="form-select" name="version" required>
+      {% for cp in checkpoints %}
+      <option value="{{ cp.version }}">{{ cp.version }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="mb-3">
+    <label class="form-label">So sánh với version (tuỳ chọn)</label>
+    <select class="form-select" name="compare_version">
+      <option value="">Chỉ vs Random Agent</option>
+      {% for cp in checkpoints %}
+      <option value="{{ cp.version }}">{{ cp.version }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Số ván test</label>
+    <input type="number" class="form-control" name="n_games" value="100" min="10" max="500">
+  </div>
+  <button type="submit" class="btn btn-primary">▶ Chạy test</button>
+</form>
+
+{% if result %}
+<hr>
+<h5>📊 Kết quả</h5>
+<div class="row g-3 mt-1">
+  <div class="col-md-4">
+    <div class="card text-center">
+      <div class="card-body">
+        <h6 class="card-title">vs Random Agent</h6>
+        <h2 class="text-success">{{ "%.1f"|format(result.vs_random.win_rate * 100) }}%</h2>
+        <small>W:{{ result.vs_random.wins }} L:{{ result.vs_random.losses }} D:{{ result.vs_random.draws }}</small>
+      </div>
+    </div>
+  </div>
+  {% if result.vs_version %}
+  <div class="col-md-4">
+    <div class="card text-center">
+      <div class="card-body">
+        <h6 class="card-title">vs {{ result.vs_version.compared_version }}</h6>
+        <h2 class="text-primary">{{ "%.1f"|format(result.vs_version.win_rate * 100) }}%</h2>
+        <small>W:{{ result.vs_version.wins }} L:{{ result.vs_version.losses }} D:{{ result.vs_version.draws }}</small>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

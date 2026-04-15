@@ -1,0 +1,72 @@
+{% extends "admin/base.html" %}
+{% block title %}Checkpoints{% endblock %}
+{% block content %}
+<h4 class="mb-4">📦 Quản lý phiên bản AI</h4>
+
+<table class="table table-bordered table-hover align-middle">
+  <thead class="table-dark">
+    <tr>
+      <th>Version</th>
+      <th>Mode</th>
+      <th>Base</th>
+      <th>Opponent</th>
+      <th>Episodes</th>
+      <th>vs Random</th>
+      <th>vs Version</th>
+      <th>Deployed</th>
+      <th>Ngày tạo</th>
+      <th>Thao tác</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for cp in checkpoints %}
+    <tr {% if cp.is_deployed %}class="table-success"{% endif %}>
+      <td><strong>{{ cp.version }}</strong></td>
+      <td><span class="badge bg-secondary">{{ cp.train_mode }}</span></td>
+      <td>{{ cp.base_version or '–' }}</td>
+      <td>{{ cp.opponent_version or '–' }}</td>
+      <td>{{ cp.episodes_trained or '–' }}</td>
+      <td>
+        {% if cp.win_rate_vs_random is not none %}
+          <span class="badge bg-{{ 'success' if cp.win_rate_vs_random >= 0.8 else 'warning text-dark' }}">
+            {{ "%.1f"|format(cp.win_rate_vs_random * 100) }}%
+          </span>
+        {% else %}–{% endif %}
+      </td>
+      <td>
+        {% if cp.win_rate_vs_version is not none %}
+          {{ "%.1f"|format(cp.win_rate_vs_version * 100) }}%
+          <small class="text-muted">(vs {{ cp.compared_version }})</small>
+        {% else %}–{% endif %}
+      </td>
+      <td>
+        {% if cp.is_deployed %}
+          <span class="badge bg-success">✅ LIVE</span>
+        {% else %}–{% endif %}
+      </td>
+      <td><small>{{ cp.created_at.strftime('%Y-%m-%d %H:%M') if cp.created_at else '–' }}</small></td>
+      <td>
+        <div class="d-flex gap-1">
+          {% if not cp.is_deployed %}
+          <form method="post" action="/admin/checkpoints/deploy">
+            <input type="hidden" name="version" value="{{ cp.version }}">
+            <button class="btn btn-sm btn-success">Deploy</button>
+          </form>
+          {% endif %}
+          <a href="/admin/stats/curve/{{ cp.id }}" class="btn btn-sm btn-outline-info" target="_blank">Curve</a>
+          {% if not cp.is_deployed %}
+          <form method="post" action="/admin/checkpoints/delete"
+                onsubmit="return confirm('Xóa {{ cp.version }}?')">
+            <input type="hidden" name="version" value="{{ cp.version }}">
+            <button class="btn btn-sm btn-outline-danger">Xóa</button>
+          </form>
+          {% endif %}
+        </div>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="10" class="text-center text-muted">Chưa có checkpoint nào</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
