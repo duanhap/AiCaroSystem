@@ -2,9 +2,9 @@ from sqlalchemy.orm import Session
 from app.models.checkpoint import Checkpoint
 
 def get_all(db: Session):
-    # Lọc bỏ checkpoint tạm (_tmp) khỏi danh sách hiển thị
+    # Lọc bỏ mọi checkpoint tạm (_tmp) khỏi danh sách hiển thị
     return db.query(Checkpoint)\
-             .filter(~Checkpoint.version.like("%_tmp"))\
+             .filter(~Checkpoint.version.like("%_tmp%"))\
              .order_by(Checkpoint.created_at.desc()).all()
 
 def get_by_version(db: Session, version: str):
