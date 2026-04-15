@@ -33,11 +33,11 @@ def apply_move(db: Session, game_id: int, action: int, env: CaroEnv) -> dict:
     )
 
     result = {
-        "action": action,
-        "player": current_player,
-        "board": list(next_state),
-        "done": done,
-        "reward": reward,
+        "action": int(action),
+        "player": int(current_player),
+        "board": [int(x) for x in next_state],
+        "done": bool(done),
+        "reward": float(reward),
         "winner": None,
     }
 

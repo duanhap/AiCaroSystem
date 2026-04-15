@@ -95,9 +95,9 @@ def pve_start(request: Request, player_side: str = Form("X"), db: Session = Depe
 
     return {
         "game_id": game.id,
-        "board": board,
+        "board": [int(x) for x in board],
         "player_side": player_side,
-        "ai_action": ai_action,
+        "ai_action": int(ai_action) if ai_action is not None else None,
     }
 
 
@@ -141,6 +141,6 @@ def pve_move(request: Request, game_id: int = Form(...),
     return {
         "player_move": player_result,
         "ai_move": ai_result,
-        "done": ai_result["done"],
+        "done": bool(ai_result["done"]),
         "winner": ai_result.get("winner"),
     }
