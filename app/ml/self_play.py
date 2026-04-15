@@ -126,20 +126,17 @@ def run_self_play(
                 "win_rate_vs_version": round(result_version["win_rate"], 4) if result_version else None,
             }
 
-            # Đo Q convergence
-            current_q_snapshot = {k: dict(v) for k, v in agent.q_table.items()}
+            # Đo Q convergence (numpy array thay vì dict)
+            current_q_snapshot = {k: v.copy() for k, v in agent.q_table.items()}
             avg_delta = None
             if prev_q_snapshot:
-                # Chỉ tính delta trên các state/action đã tồn tại ở CẢ HAI snapshot
-                # để tránh nhầm "ít delta" do Q-table đang còn nhỏ
                 common_states = set(current_q_snapshot.keys()) & set(prev_q_snapshot.keys())
-                deltas = [
-                    abs(val - prev_q_snapshot[s][a])
-                    for s in common_states
-                    for a, val in current_q_snapshot[s].items()
-                    if a in prev_q_snapshot[s]
-                ]
-                if deltas:
+                if common_states:
+                    import numpy as np
+                    deltas = [
+                        float(np.mean(np.abs(current_q_snapshot[s] - prev_q_snapshot[s])))
+                        for s in common_states
+                    ]
                     avg_delta = sum(deltas) / len(deltas)
                     log_entry["avg_q_delta"] = round(avg_delta, 6)
                     log_entry["common_states"] = len(common_states)
