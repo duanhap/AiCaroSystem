@@ -47,6 +47,9 @@ def selfplay_stream(
     test_interval: int = 200,
     test_games: int = 100,
     win_rate_target: float = 0.9,
+    enable_convergence: bool = False,
+    convergence_threshold: float = 0.001,
+    convergence_streak: int = 3,
     db: Session = Depends(get_db),
 ):
     """SSE endpoint: stream progress self-play realtime"""
@@ -71,6 +74,8 @@ def selfplay_stream(
                 test_interval=test_interval,
                 test_games=test_games,
                 win_rate_target=win_rate_target,
+                convergence_threshold=convergence_threshold if enable_convergence else 0.0,
+                convergence_streak=convergence_streak if enable_convergence else 999,
                 on_progress=on_progress,
             )
             result["train_mode"] = "selfplay"

@@ -84,6 +84,30 @@
               <label class="form-label">Win rate target (%)</label>
               <input type="number" class="form-control" id="sp_target" value="90">
             </div>
+            <!-- CONVERGENCE SETTINGS -->
+            <div class="col-12">
+              <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.85rem;color:var(--text-muted)">
+                  <input type="checkbox" id="sp_convergence_enable" onchange="toggleConvergence()"
+                         style="width:16px;height:16px;accent-color:var(--accent)">
+                  Bật Q-table convergence check (early stop khi Q ổn định)
+                </label>
+              </div>
+            </div>
+            <div id="convergenceFields" class="col-12 d-none">
+              <div class="row g-3">
+                <div class="col-6">
+                  <label class="form-label">Convergence threshold (Δq &lt;)</label>
+                  <input type="number" class="form-control" id="sp_conv_threshold" value="0.001" step="0.0001">
+                  <div style="font-size:.72rem;color:var(--text-muted);margin-top:3px">avg Q-delta nhỏ hơn giá trị này → coi là hội tụ</div>
+                </div>
+                <div class="col-6">
+                  <label class="form-label">Convergence streak (lần liên tiếp)</label>
+                  <input type="number" class="form-control" id="sp_conv_streak" value="3" min="1" max="10">
+                  <div style="font-size:.72rem;color:var(--text-muted);margin-top:3px">phải hội tụ N lần liên tiếp mới dừng</div>
+                </div>
+              </div>
+            </div>
             <div class="col-12 mt-2">
               <button class="btn-accent" onclick="startSelfPlay()">
                 <i class="bi bi-play-fill me-1"></i>Bắt đầu Self-play
@@ -300,6 +324,7 @@ function switchTab(name, btn) {
 
 function startSelfPlay() {
   totalEpisodes = parseInt(document.getElementById('sp_episodes').value);
+  const convEnabled = document.getElementById('sp_convergence_enable').checked;
   const params = new URLSearchParams({
     base_version: document.getElementById('sp_base').value,
     opponent_version: document.getElementById('sp_opponent').value,
@@ -313,12 +338,20 @@ function startSelfPlay() {
     test_interval: document.getElementById('sp_interval').value,
     test_games: document.getElementById('sp_test_games').value,
     win_rate_target: document.getElementById('sp_target').value / 100,
+    enable_convergence: convEnabled,
+    convergence_threshold: document.getElementById('sp_conv_threshold').value,
+    convergence_streak: document.getElementById('sp_conv_streak').value,
   });
   document.getElementById('idlePanel').classList.add('d-none');
   document.getElementById('progressPanel').classList.remove('d-none');
   document.getElementById('resultPanel').classList.add('d-none');
   document.getElementById('logBox').innerHTML = '';
   startStream(`/admin/training/selfplay/stream?${params}`, 'sp');
+}
+
+function toggleConvergence() {
+  const enabled = document.getElementById('sp_convergence_enable').checked;
+  document.getElementById('convergenceFields').classList.toggle('d-none', !enabled);
 }
 
 function startOffline() {

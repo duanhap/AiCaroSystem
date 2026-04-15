@@ -21,7 +21,8 @@ def run_self_play(
     win_rate_target: float = 0.9,
     compare_agent: Optional[QAgent] = None,
     on_progress: Optional[Callable] = None,
-    convergence_threshold: float = 0.001,
+    convergence_threshold: float = 0.0,
+    convergence_streak: int = 999,
 ) -> dict:
     """
     Chạy self-play training.
@@ -44,9 +45,9 @@ def run_self_play(
     logs = []
     final_result = {}
     prev_q_snapshot = {}
-    convergence_checks_passed = 0  # Cần liên tiếp N lần mới dừng
-    CONVERGENCE_STREAK = 3         # Phải hội tụ 3 lần liên tiếp mới dừng
-    MIN_EPISODES_BEFORE_CONVERGENCE = max(test_interval * 5, 1000)  # Không check sớm hơn 1000 ep
+    convergence_checks_passed = 0
+    CONVERGENCE_STREAK = convergence_streak
+    MIN_EPISODES_BEFORE_CONVERGENCE = max(test_interval * 5, 1000)
 
     for ep in range(1, episodes + 1):
         state = env.reset()
@@ -167,9 +168,9 @@ def run_self_play(
                 logger.info(f"[ep {ep}] Early stop: {stop_metric} >= {win_rate_target:.1%}")
                 break
 
-            # Early stopping: Q hội tụ
-            # Điều kiện: ep đủ lớn + avg_delta nhỏ + liên tiếp CONVERGENCE_STREAK lần
-            if (avg_delta is not None
+            # Early stopping: Q hội tụ (chỉ check nếu convergence_threshold > 0)
+            if (convergence_threshold > 0
+                    and avg_delta is not None
                     and ep >= MIN_EPISODES_BEFORE_CONVERGENCE
                     and avg_delta < convergence_threshold):
                 convergence_checks_passed += 1
