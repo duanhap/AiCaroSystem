@@ -1,0 +1,250 @@
+{% extends "admin/base.html" %}
+{% block title %}{{ cp.version }} – Chi tiết{% endblock %}
+{% block page_title %}{{ cp.version }}{% endblock %}
+{% block content %}
+
+<div style="margin-bottom:20px">
+  <a href="/admin/checkpoints/" style="color:var(--text-muted);text-decoration:none;font-size:.85rem">
+    ← Checkpoints
+  </a>
+</div>
+
+<!-- HEADER INFO -->
+<div class="row g-3 mb-4" id="headerCards">
+  <div class="col-md-3">
+    <div class="stat-card">
+      <div class="stat-label">Version</div>
+      <div class="stat-value" style="font-size:1.4rem;color:var(--accent)">{{ cp.version }}</div>
+      <div class="stat-label mt-1">
+        {% if cp.is_deployed %}<span class="badge-live">● LIVE</span>{% else %}saved{% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="stat-card">
+      <div class="stat-label">vs Random Agent</div>
+      <div class="stat-value" style="color:var(--accent2)" id="wrRandom">
+        {{ "%.1f"|format(cp.win_rate_vs_random * 100) + "%" if cp.win_rate_vs_random is not none else "–" }}
+      </div>
+      <div class="stat-label mt-1">win rate</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="stat-card">
+      <div class="stat-label">vs {{ cp.compared_version or "–" }}</div>
+      <div class="stat-value" style="color:var(--accent)" id="wrVersion">
+        {{ "%.1f"|format(cp.win_rate_vs_version * 100) + "%" if cp.win_rate_vs_version is not none else "–" }}
+      </div>
+      <div class="stat-label mt-1">win rate</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="stat-card">
+      <div class="stat-label">Episodes trained</div>
+      <div class="stat-value">{{ "{:,}".format(cp.episodes_trained) if cp.episodes_trained else "–" }}</div>
+      <div class="stat-label mt-1">{{ cp.train_mode }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <!-- Q-TABLE STATS -->
+  <div class="col-lg-5">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-table me-2"></i>Q-table Analysis</div>
+      <div class="card-body" id="qtableBody">
+        <div style="text-align:center;padding:40px;color:var(--text-muted)">
+          <div class="spinner-border spinner-border-sm" role="status"></div>
+          <div class="mt-2">Đang phân tích...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LEARNING CURVE -->
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-graph-up me-2"></i>Learning Curve</div>
+      <div class="card-body">
+        <canvas id="curveChart" height="120"></canvas>
+        <div id="noCurve" style="text-align:center;padding:40px;color:var(--text-muted);display:none">
+          <i class="bi bi-bar-chart" style="font-size:2rem;opacity:.3"></i>
+          <div class="mt-2">Không có dữ liệu training log</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Q-VALUE DISTRIBUTION CHART -->
+    <div class="card mt-4">
+      <div class="card-header"><i class="bi bi-pie-chart me-2"></i>Phân phối Q-values</div>
+      <div class="card-body">
+        <canvas id="distChart" height="80"></canvas>
+        <div id="noDist" style="text-align:center;padding:20px;color:var(--text-muted);display:none">
+          Chưa có dữ liệu
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TRAIN PARAMS -->
+<div class="card mt-4" id="paramsCard" style="display:none">
+  <div class="card-header"><i class="bi bi-sliders me-2"></i>Tham số huấn luyện</div>
+  <div class="card-body" id="paramsBody"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const cpId = {{ checkpoint_id }};
+let curveChart = null, distChart = null;
+
+fetch(`/admin/stats/checkpoint/${cpId}`)
+  .then(r => r.json())
+  .then(data => {
+    renderQtable(data.qtable_stats);
+    renderCurve(data.curve);
+    renderParams(data.checkpoint.metadata);
+  });
+
+function renderQtable(stats) {
+  const body = document.getElementById('qtableBody');
+  if (!stats) {
+    body.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:20px">File .pkl không tồn tại</div>';
+    return;
+  }
+  if (stats.error) {
+    body.innerHTML = `<div style="color:#e74c3c">Lỗi: ${stats.error}</div>`;
+    return;
+  }
+
+  const quality = stats.positive_pct > 5 ? '🟢 Đã học tốt' :
+                  stats.positive_pct > 1 ? '🟡 Đang học' : '🔴 Chưa học được';
+
+  body.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+      <div style="background:var(--surface2);border-radius:8px;padding:12px;text-align:center">
+        <div style="font-size:.75rem;color:var(--text-muted)">States đã học</div>
+        <div style="font-size:1.4rem;font-weight:700;color:var(--accent)">${stats.total_states.toLocaleString()}</div>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:12px;text-align:center">
+        <div style="font-size:.75rem;color:var(--text-muted)">Khám phá không gian</div>
+        <div style="font-size:1.4rem;font-weight:700;color:var(--accent2)">${stats.exploration_pct}%</div>
+        <div style="font-size:.72rem;color:var(--text-muted)">${stats.avg_actions_per_state} / 49 actions TB</div>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:12px;text-align:center">
+        <div style="font-size:.75rem;color:var(--text-muted)">Q-value max</div>
+        <div style="font-size:1.2rem;font-weight:700;color:#00d4aa">${stats.max_q}</div>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:12px;text-align:center">
+        <div style="font-size:.75rem;color:var(--text-muted)">Q-value min</div>
+        <div style="font-size:1.2rem;font-weight:700;color:#e74c3c">${stats.min_q}</div>
+      </div>
+    </div>
+
+    <div style="margin-bottom:12px">
+      <div style="font-size:.8rem;color:var(--text-muted);margin-bottom:6px">Đánh giá chất lượng</div>
+      <div style="font-size:1rem;font-weight:600">${quality}</div>
+    </div>
+
+    <div>
+      <div style="font-size:.8rem;color:var(--text-muted);margin-bottom:8px">Phân phối Q-values</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="width:80px;font-size:.78rem;color:#00d4aa">Tốt (>0.1)</div>
+          <div style="flex:1;background:var(--surface2);border-radius:4px;height:8px">
+            <div style="width:${Math.min(stats.positive_pct * 10, 100)}%;background:#00d4aa;height:8px;border-radius:4px"></div>
+          </div>
+          <div style="width:60px;font-size:.78rem;text-align:right">${stats.positive_pct}% (${stats.positive_count.toLocaleString()})</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="width:80px;font-size:.78rem;color:#e74c3c">Xấu (<-0.1)</div>
+          <div style="flex:1;background:var(--surface2);border-radius:4px;height:8px">
+            <div style="width:${Math.min(stats.negative_pct * 10, 100)}%;background:#e74c3c;height:8px;border-radius:4px"></div>
+          </div>
+          <div style="width:60px;font-size:.78rem;text-align:right">${stats.negative_pct}% (${stats.negative_count.toLocaleString()})</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="width:80px;font-size:.78rem;color:var(--text-muted)">Trung tính</div>
+          <div style="flex:1;background:var(--surface2);border-radius:4px;height:8px">
+            <div style="width:${Math.min(stats.neutral_pct, 100)}%;background:var(--border);height:8px;border-radius:4px"></div>
+          </div>
+          <div style="width:60px;font-size:.78rem;text-align:right">${stats.neutral_pct}%</div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Pie chart phân phối
+  const distCtx = document.getElementById('distChart').getContext('2d');
+  if (distChart) distChart.destroy();
+  if (stats.positive_count + stats.negative_count === 0) {
+    document.getElementById('noDist').style.display = 'block';
+    document.getElementById('distChart').style.display = 'none';
+  } else {
+    distChart = new Chart(distCtx, {
+      type: 'doughnut',
+      data: {
+        labels: ['Tốt (>0.1)', 'Xấu (<-0.1)', 'Trung tính'],
+        datasets: [{
+          data: [stats.positive_count, stats.negative_count, stats.neutral_count],
+          backgroundColor: ['rgba(0,212,170,.8)', 'rgba(231,76,60,.8)', 'rgba(46,50,80,.8)'],
+          borderWidth: 0,
+        }]
+      },
+      options: {
+        plugins: { legend: { labels: { color: '#e2e8f0', font: { size: 11 } } } },
+        cutout: '65%',
+      }
+    });
+  }
+}
+
+function renderCurve(curve) {
+  if (!curve.labels || curve.labels.length === 0) {
+    document.getElementById('noCurve').style.display = 'block';
+    document.getElementById('curveChart').style.display = 'none';
+    return;
+  }
+  const ctx = document.getElementById('curveChart').getContext('2d');
+  if (curveChart) curveChart.destroy();
+  curveChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: curve.labels,
+      datasets: [
+        { label: 'vs Random (%)', data: curve.win_rate_vs_random.map(v => v ? +(v*100).toFixed(1) : null),
+          borderColor: '#6c63ff', backgroundColor: 'rgba(108,99,255,.1)', tension: 0.4, fill: true, pointRadius: 3 },
+        { label: 'vs Version (%)', data: curve.win_rate_vs_version.map(v => v ? +(v*100).toFixed(1) : null),
+          borderColor: '#00d4aa', backgroundColor: 'rgba(0,212,170,.1)', tension: 0.4, fill: true, pointRadius: 3 },
+        { label: 'Epsilon', data: curve.epsilon.map(v => v ? +(v*100).toFixed(1) : null),
+          borderColor: '#ffc107', borderDash: [4,4], tension: 0.4, fill: false, pointRadius: 2, yAxisID: 'y' },
+      ]
+    },
+    options: {
+      plugins: { legend: { labels: { color: '#e2e8f0', font: { size: 11 } } } },
+      scales: {
+        y: { min: 0, max: 100, grid: { color: '#2e3250' }, ticks: { color: '#8892b0' },
+             title: { display: true, text: 'Win rate / ε (%)', color: '#8892b0' } },
+        x: { grid: { color: '#2e3250' }, ticks: { color: '#8892b0' },
+             title: { display: true, text: 'Episode', color: '#8892b0' } }
+      }
+    }
+  });
+}
+
+function renderParams(meta) {
+  if (!meta) return;
+  const card = document.getElementById('paramsCard');
+  const body = document.getElementById('paramsBody');
+  card.style.display = 'block';
+  const items = Object.entries(meta).map(([k, v]) =>
+    `<div style="background:var(--surface2);border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between">
+      <span style="font-size:.82rem;color:var(--text-muted)">${k}</span>
+      <span style="font-size:.85rem;font-weight:600">${v}</span>
+    </div>`
+  ).join('');
+  body.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px">${items}</div>`;
+}
+</script>
+{% endblock %}

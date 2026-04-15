@@ -85,3 +85,78 @@ def game_stats_table(request: Request, db: Session = Depends(get_db)):
         "request": request,
         "stats": stats,
     })
+
+
+@router.get("/checkpoint/{checkpoint_id}")
+def checkpoint_detail_json(checkpoint_id: int, db: Session = Depends(get_db)):
+    """Trả về Q-table stats + learning curve cho 1 checkpoint"""
+    import pickle, os
+    from app.models.checkpoint import Checkpoint
+
+    cp = db.query(Checkpoint).filter(Checkpoint.id == checkpoint_id).first()
+    if not cp:
+        return {"error": "Không tìm thấy checkpoint"}
+
+    logs = training_log_repo.get_logs_by_checkpoint(db, checkpoint_id)
+    curve = {
+        "labels": [l.episode for l in logs],
+        "win_rate_vs_random": [l.win_rate_vs_random for l in logs],
+        "win_rate_vs_version": [l.win_rate_vs_version for l in logs],
+        "epsilon": [l.epsilon for l in logs],
+    }
+
+    qtable_stats = None
+    if cp.file_path and os.path.exists(cp.file_path):
+        try:
+            with open(cp.file_path, "rb") as f:
+                data = pickle.load(f)
+            all_vals = [v for actions in data.values() for v in actions.values()]
+            total = len(all_vals)
+            pos = sum(1 for v in all_vals if v > 0.1)
+            neg = sum(1 for v in all_vals if v < -0.1)
+            neu = total - pos - neg
+            avg_actions = sum(len(v) for v in data.values()) / len(data) if data else 0
+            qtable_stats = {
+                "total_states": len(data),
+                "total_entries": total,
+                "avg_q": round(sum(all_vals) / total, 4) if total else 0,
+                "max_q": round(max(all_vals), 4) if all_vals else 0,
+                "min_q": round(min(all_vals), 4) if all_vals else 0,
+                "positive_pct": round(pos / total * 100, 1) if total else 0,
+                "negative_pct": round(neg / total * 100, 1) if total else 0,
+                "neutral_pct": round(neu / total * 100, 1) if total else 0,
+                "positive_count": pos,
+                "negative_count": neg,
+                "neutral_count": neu,
+                "avg_actions_per_state": round(avg_actions, 1),
+                "exploration_pct": round(avg_actions / 49 * 100, 1),
+            }
+        except Exception as e:
+            qtable_stats = {"error": str(e)}
+
+    return {
+        "checkpoint": {
+            "id": cp.id, "version": cp.version,
+            "train_mode": cp.train_mode,
+            "episodes_trained": cp.episodes_trained,
+            "win_rate_vs_random": cp.win_rate_vs_random,
+            "win_rate_vs_version": cp.win_rate_vs_version,
+            "compared_version": cp.compared_version,
+            "is_deployed": cp.is_deployed,
+            "created_at": str(cp.created_at),
+            "metadata": cp.metadata_,
+        },
+        "curve": curve,
+        "qtable_stats": qtable_stats,
+    }
+
+
+@router.get("/checkpoint/{checkpoint_id}/page", response_class=HTMLResponse)
+def checkpoint_detail_page(checkpoint_id: int, request: Request, db: Session = Depends(get_db)):
+    from app.models.checkpoint import Checkpoint
+    cp = db.query(Checkpoint).filter(Checkpoint.id == checkpoint_id).first()
+    return templates.TemplateResponse("admin/checkpoint_detail.html", {
+        "request": request,
+        "cp": cp,
+        "checkpoint_id": checkpoint_id,
+    })

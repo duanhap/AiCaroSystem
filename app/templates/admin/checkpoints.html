@@ -82,7 +82,7 @@
                 </button>
               </form>
               {% endif %}
-              <a href="/admin/stats/?cp={{ cp.id }}" class="btn-ghost" style="padding:5px 10px;font-size:.78rem;text-decoration:none">
+              <a href="/admin/stats/checkpoint/{{ cp.id }}/page" class="btn-ghost" style="padding:5px 10px;font-size:.78rem;text-decoration:none">
                 <i class="bi bi-graph-up"></i>
               </a>
               {% if not cp.is_deployed %}
