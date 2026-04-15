@@ -164,6 +164,17 @@
               </div>
             </div>
             <div class="log-box" id="logBox"></div>
+            <div class="d-flex gap-2 mt-3">
+              <button id="btnPause" class="btn-ghost" onclick="pauseTraining()" style="font-size:.82rem;padding:6px 14px">
+                <i class="bi bi-pause-fill me-1"></i>Tạm dừng
+              </button>
+              <button id="btnResume" class="btn-accent" onclick="resumeTraining()" style="font-size:.82rem;padding:6px 14px;display:none">
+                <i class="bi bi-play-fill me-1"></i>Tiếp tục
+              </button>
+              <button id="btnStop" class="btn-danger-ghost" onclick="stopTraining()" style="font-size:.82rem;padding:6px 14px">
+                <i class="bi bi-stop-fill me-1"></i>Dừng hẳn
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -448,5 +459,42 @@ function commitAction(action) {
     window.location.href = '/admin/checkpoints/';
   });
 }
+
+let _isPaused = false;
+
+function pauseTraining() {
+  fetch('/admin/training/pause', { method: 'POST' });
+  _isPaused = true;
+  document.getElementById('btnPause').style.display = 'none';
+  document.getElementById('btnResume').style.display = 'inline-block';
+  const log = document.getElementById('logBox');
+  const line = document.createElement('div');
+  line.style.color = '#ffc107';
+  line.textContent = '⏸ Đã tạm dừng...';
+  log.appendChild(line); log.scrollTop = log.scrollHeight;
+}
+
+function resumeTraining() {
+  fetch('/admin/training/resume', { method: 'POST' });
+  _isPaused = false;
+  document.getElementById('btnPause').style.display = 'inline-block';
+  document.getElementById('btnResume').style.display = 'none';
+  const log = document.getElementById('logBox');
+  const line = document.createElement('div');
+  line.style.color = 'var(--accent2)';
+  line.textContent = '▶ Tiếp tục training...';
+  log.appendChild(line); log.scrollTop = log.scrollHeight;
+}
+
+function stopTraining() {
+  if (!confirm('Dừng training? Kết quả hiện tại sẽ được giữ lại để bạn lưu hoặc bỏ qua.')) return;
+  fetch('/admin/training/stop', { method: 'POST' });
+  const log = document.getElementById('logBox');
+  const line = document.createElement('div');
+  line.style.color = '#e74c3c';
+  line.textContent = '⏹ Đã gửi lệnh dừng...';
+  log.appendChild(line); log.scrollTop = log.scrollHeight;
+}
 </script>
 {% endblock %}
+

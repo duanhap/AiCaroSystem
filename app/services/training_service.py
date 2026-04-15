@@ -30,6 +30,8 @@ def start_self_play(
     win_rate_target: float,
     convergence_threshold: float = 0.0,
     convergence_streak: int = 999,
+    pause_event=None,
+    stop_event=None,
     on_progress: Optional[Callable] = None,
 ) -> dict:
     """Chạy self-play và trả về kết quả (chưa lưu checkpoint)."""
@@ -112,6 +114,8 @@ def start_self_play(
         compare_agent=compare_agent,
         convergence_threshold=convergence_threshold,
         convergence_streak=convergence_streak,
+        pause_event=pause_event,
+        stop_event=stop_event,
         on_progress=progress_handler,
     )
 

@@ -20,8 +20,10 @@ from app.services import training_service
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
 
-# Lưu kết quả train tạm (session đơn giản, production dùng Redis)
 _pending_result: dict = {}
+_pause_event = threading.Event()   # set = đang chạy, clear = tạm dừng
+_stop_event  = threading.Event()   # set = dừng hẳn
+_pause_event.set()  # mặc định đang chạy
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -59,9 +61,13 @@ def selfplay_stream(
         done_event = threading.Event()
 
         def on_progress(entry):
+            # Kiểm tra pause trước khi emit
+            _pause_event.wait()  # block nếu đang pause
             progress_queue.append(entry)
 
         def run():
+            _pause_event.set()
+            _stop_event.clear()
             result = training_service.start_self_play(
                 db=db,
                 base_version=base_version if base_version else None,
@@ -76,6 +82,8 @@ def selfplay_stream(
                 win_rate_target=win_rate_target,
                 convergence_threshold=convergence_threshold if enable_convergence else 0.0,
                 convergence_streak=convergence_streak if enable_convergence else 999,
+                pause_event=_pause_event,
+                stop_event=_stop_event,
                 on_progress=on_progress,
             )
             result["train_mode"] = "selfplay"
@@ -151,7 +159,7 @@ def offline_stream(
 
 @router.post("/commit")
 def commit_result(
-    action: str = Form(...),   # "deploy" | "save" | "discard"
+    action: str = Form(...),
     db: Session = Depends(get_db),
 ):
     """Xử lý Deploy / Lưu / Bỏ qua sau khi train xong"""
@@ -167,3 +175,22 @@ def commit_result(
         "message": f"{'Deploy' if action == 'deploy' else 'Lưu'} thành công",
         "version": cp.version if cp else None,
     }
+
+
+@router.post("/pause")
+def pause_training():
+    _pause_event.clear()
+    return {"status": "paused"}
+
+
+@router.post("/resume")
+def resume_training():
+    _pause_event.set()
+    return {"status": "running"}
+
+
+@router.post("/stop")
+def stop_training():
+    _stop_event.set()
+    _pause_event.set()  # unblock nếu đang pause để thread thoát được
+    return {"status": "stopped"}

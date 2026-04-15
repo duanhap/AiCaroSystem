@@ -23,6 +23,8 @@ def run_self_play(
     on_progress: Optional[Callable] = None,
     convergence_threshold: float = 0.0,
     convergence_streak: int = 999,
+    pause_event=None,
+    stop_event=None,
 ) -> dict:
     """
     Chạy self-play training.
@@ -89,6 +91,14 @@ def run_self_play(
             state = next_state
 
         agent.decay_epsilon()
+
+        # Kiểm tra pause/stop
+        if pause_event:
+            pause_event.wait()  # block nếu đang pause
+        if stop_event and stop_event.is_set():
+            final_result["stopped_early"] = True
+            final_result["stop_reason"] = "manual_stop"
+            break
 
         # Emit progress nhẹ mỗi 50 episode (không test, chỉ báo đang chạy)
         if ep % 50 == 0 and ep % test_interval != 0 and on_progress:
