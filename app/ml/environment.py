@@ -20,8 +20,8 @@ class CaroEnv:
         return self.get_state()
 
     def get_state(self):
-        """Trả về tuple để dùng làm key trong Q-table"""
-        return tuple(self.board.flatten())
+        """Trả về tuple Python int để dùng làm key trong Q-table và serialize JSON"""
+        return tuple(int(x) for x in self.board.flatten())
 
     def get_valid_actions(self):
         return [i for i in range(BOARD_SIZE * BOARD_SIZE) if self.board.flatten()[i] == EMPTY]

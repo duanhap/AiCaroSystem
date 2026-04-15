@@ -21,15 +21,15 @@ def apply_move(db: Session, game_id: int, action: int, env: CaroEnv) -> dict:
 
     next_state, reward, done = env.step(action)
 
-    # Lưu step vào DB
+    # Lưu step vào DB — convert numpy types sang Python thuần
     steps = game_repo.get_steps(db, game_id)
     step_number = len(steps) + 1
     game_repo.add_step(
         db, game_id=game_id,
         step_number=step_number,
-        state=list(state_before),
-        action=action,
-        reward=reward,
+        state=[int(x) for x in state_before],
+        action=int(action),
+        reward=float(reward),
     )
 
     result = {
