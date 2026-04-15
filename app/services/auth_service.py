@@ -3,13 +3,17 @@ from jose import jwt
 from datetime import datetime, timedelta
 from app.config import settings
 
+# Fix compatibility với bcrypt >= 4.x
+import bcrypt as _bcrypt
+from passlib.handlers.bcrypt import bcrypt as _passlib_bcrypt
+
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    return _bcrypt.hashpw(password.encode(), _bcrypt.gensalt()).decode()
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+    return _bcrypt.checkpw(plain.encode(), hashed.encode())
 
 def create_access_token(data: dict) -> str:
     to_encode = data.copy()

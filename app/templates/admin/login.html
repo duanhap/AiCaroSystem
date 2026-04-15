@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Login – AI Caro</title>
+  <style>
+    :root {
+      --bg: #0f1117; --surface: #1a1d27; --border: #2e3250;
+      --accent: #6c63ff; --accent2: #00d4aa; --text: #e2e8f0; --text-muted: #8892b0;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif;
+           min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+
+    .login-wrap { width: 100%; max-width: 400px; padding: 24px; }
+
+    .logo-area { text-align: center; margin-bottom: 36px; }
+    .logo-icon { font-size: 3rem; display: block; margin-bottom: 10px; }
+    .logo-title { font-size: 1.5rem; font-weight: 800; color: var(--accent); }
+    .logo-sub { font-size: 0.82rem; color: var(--text-muted); margin-top: 4px; }
+
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 16px; padding: 32px;
+    }
+    .card-title { font-size: 1rem; font-weight: 600; margin-bottom: 24px; color: var(--text); }
+
+    .form-group { margin-bottom: 18px; }
+    label { display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 6px; font-weight: 500; }
+    input {
+      width: 100%; background: #22263a; border: 1px solid var(--border);
+      color: var(--text); border-radius: 8px; padding: 10px 14px; font-size: 0.9rem;
+      outline: none; transition: border-color .2s;
+    }
+    input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(108,99,255,.2); }
+    input::placeholder { color: var(--text-muted); }
+
+    .btn-login {
+      width: 100%; background: var(--accent); color: #fff; border: none;
+      border-radius: 8px; padding: 12px; font-size: 0.95rem; font-weight: 600;
+      cursor: pointer; transition: background .2s; margin-top: 8px;
+    }
+    .btn-login:hover { background: #5a52e0; }
+
+    .error-msg {
+      background: rgba(231,76,60,.15); border: 1px solid rgba(231,76,60,.3);
+      color: #e74c3c; border-radius: 8px; padding: 10px 14px;
+      font-size: 0.85rem; margin-bottom: 18px;
+      display: flex; align-items: center; gap: 8px;
+    }
+
+    .footer-note { text-align: center; margin-top: 20px; font-size: 0.75rem; color: var(--text-muted); }
+  </style>
+</head>
+<body>
+<div class="login-wrap">
+  <div class="logo-area">
+    <span class="logo-icon">♟</span>
+    <div class="logo-title">AI Caro</div>
+    <div class="logo-sub">Admin Panel · Q-learning 7×7</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Đăng nhập quản trị</div>
+
+    {% if error %}
+    <div class="error-msg">
+      <span>⚠</span> {{ error }}
+    </div>
+    {% endif %}
+
+    <form method="post" action="/admin/login">
+      <div class="form-group">
+        <label>Tên đăng nhập</label>
+        <input type="text" name="username" placeholder="admin" autofocus required>
+      </div>
+      <div class="form-group">
+        <label>Mật khẩu</label>
+        <input type="password" name="password" placeholder="••••••••" required>
+      </div>
+      <button type="submit" class="btn-login">Đăng nhập</button>
+    </form>
+  </div>
+
+  <div class="footer-note">AI Caro System · Reinforcement Learning</div>
+</div>
+</body>
+</html>
