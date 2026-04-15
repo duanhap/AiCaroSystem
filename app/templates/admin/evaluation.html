@@ -1,57 +1,123 @@
 {% extends "admin/base.html" %}
 {% block title %}Evaluation{% endblock %}
+{% block page_title %}Evaluation{% endblock %}
 {% block content %}
-<h4 class="mb-4">🧪 Test thủ công</h4>
 
-<form method="post" action="/admin/evaluation/run" style="max-width:500px">
-  <div class="mb-3">
-    <label class="form-label">Version cần test</label>
-    <select class="form-select" name="version" required>
-      {% for cp in checkpoints %}
-      <option value="{{ cp.version }}">{{ cp.version }}</option>
-      {% endfor %}
-    </select>
-  </div>
-  <div class="mb-3">
-    <label class="form-label">So sánh với version (tuỳ chọn)</label>
-    <select class="form-select" name="compare_version">
-      <option value="">Chỉ vs Random Agent</option>
-      {% for cp in checkpoints %}
-      <option value="{{ cp.version }}">{{ cp.version }}</option>
-      {% endfor %}
-    </select>
-  </div>
-  <div class="mb-3">
-    <label class="form-label">Số ván test</label>
-    <input type="number" class="form-control" name="n_games" value="100" min="10" max="500">
-  </div>
-  <button type="submit" class="btn btn-primary">▶ Chạy test</button>
-</form>
-
-{% if result %}
-<hr>
-<h5>📊 Kết quả</h5>
-<div class="row g-3 mt-1">
-  <div class="col-md-4">
-    <div class="card text-center">
+<div class="row g-4">
+  <!-- FORM -->
+  <div class="col-lg-4">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-clipboard-data me-2"></i>Cấu hình test</div>
       <div class="card-body">
-        <h6 class="card-title">vs Random Agent</h6>
-        <h2 class="text-success">{{ "%.1f"|format(result.vs_random.win_rate * 100) }}%</h2>
-        <small>W:{{ result.vs_random.wins }} L:{{ result.vs_random.losses }} D:{{ result.vs_random.draws }}</small>
+        <form method="post" action="/admin/evaluation/run">
+          <div class="mb-3">
+            <label class="form-label">Version cần test</label>
+            <select class="form-select" name="version" required>
+              {% for cp in checkpoints %}
+              <option value="{{ cp.version }}" {% if cp.is_deployed %}selected{% endif %}>
+                {{ cp.version }}{% if cp.is_deployed %} ● LIVE{% endif %}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">So sánh với version</label>
+            <select class="form-select" name="compare_version">
+              <option value="">Chỉ vs Random Agent</option>
+              {% for cp in checkpoints %}
+              <option value="{{ cp.version }}">{{ cp.version }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-4">
+            <label class="form-label">Số ván test</label>
+            <input type="number" class="form-control" name="n_games" value="100" min="10" max="500">
+          </div>
+          <button type="submit" class="btn-accent w-100">
+            <i class="bi bi-play-fill me-1"></i>Chạy test
+          </button>
+        </form>
       </div>
     </div>
   </div>
-  {% if result.vs_version %}
-  <div class="col-md-4">
-    <div class="card text-center">
+
+  <!-- RESULT -->
+  <div class="col-lg-8">
+    {% if result %}
+    <div class="section-title">Kết quả – {{ result.version }} ({{ result.n_games }} ván)</div>
+    <div class="row g-3 mb-4">
+      <div class="col-md-6">
+        <div class="result-card">
+          <div style="font-size:.8rem;color:var(--text-muted);margin-bottom:8px">vs Random Agent</div>
+          <div class="big-num" style="color:var(--accent2)">
+            {{ "%.1f"|format(result.vs_random.win_rate * 100) }}%
+          </div>
+          <div class="sub">
+            <span style="color:#00d4aa">W {{ result.vs_random.wins }}</span> ·
+            <span style="color:#e74c3c">L {{ result.vs_random.losses }}</span> ·
+            <span style="color:#8892b0">D {{ result.vs_random.draws }}</span>
+          </div>
+        </div>
+      </div>
+      {% if result.vs_version %}
+      <div class="col-md-6">
+        <div class="result-card">
+          <div style="font-size:.8rem;color:var(--text-muted);margin-bottom:8px">vs {{ result.vs_version.compared_version }}</div>
+          <div class="big-num" style="color:var(--accent)">
+            {{ "%.1f"|format(result.vs_version.win_rate * 100) }}%
+          </div>
+          <div class="sub">
+            <span style="color:#00d4aa">W {{ result.vs_version.wins }}</span> ·
+            <span style="color:#e74c3c">L {{ result.vs_version.losses }}</span> ·
+            <span style="color:#8892b0">D {{ result.vs_version.draws }}</span>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- BAR CHART -->
+    <div class="card">
+      <div class="card-header"><i class="bi bi-bar-chart me-2"></i>Phân tích kết quả</div>
       <div class="card-body">
-        <h6 class="card-title">vs {{ result.vs_version.compared_version }}</h6>
-        <h2 class="text-primary">{{ "%.1f"|format(result.vs_version.win_rate * 100) }}%</h2>
-        <small>W:{{ result.vs_version.wins }} L:{{ result.vs_version.losses }} D:{{ result.vs_version.draws }}</small>
+        <canvas id="evalChart" height="80"></canvas>
       </div>
     </div>
+
+    {% else %}
+    <div class="card h-100 d-flex align-items-center justify-content-center" style="min-height:300px">
+      <div class="text-center" style="color:var(--text-muted)">
+        <i class="bi bi-clipboard-data" style="font-size:3rem;opacity:.3"></i>
+        <div class="mt-3">Chạy test để xem kết quả</div>
+      </div>
+    </div>
+    {% endif %}
   </div>
-  {% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+{% if result %}
+<script>
+const ctx = document.getElementById('evalChart').getContext('2d');
+new Chart(ctx, {
+  type: 'bar',
+  data: {
+    labels: ['vs Random Agent'{% if result.vs_version %}, 'vs {{ result.vs_version.compared_version }}'{% endif %}],
+    datasets: [
+      { label: 'Thắng', data: [{{ result.vs_random.wins }}{% if result.vs_version %}, {{ result.vs_version.wins }}{% endif %}], backgroundColor: 'rgba(0,212,170,.7)' },
+      { label: 'Thua',  data: [{{ result.vs_random.losses }}{% if result.vs_version %}, {{ result.vs_version.losses }}{% endif %}], backgroundColor: 'rgba(231,76,60,.7)' },
+      { label: 'Hòa',   data: [{{ result.vs_random.draws }}{% if result.vs_version %}, {{ result.vs_version.draws }}{% endif %}], backgroundColor: 'rgba(108,99,255,.5)' },
+    ]
+  },
+  options: {
+    plugins: { legend: { labels: { color: '#e2e8f0' } } },
+    scales: {
+      x: { stacked: true, grid: { color: '#2e3250' }, ticks: { color: '#8892b0' } },
+      y: { stacked: true, grid: { color: '#2e3250' }, ticks: { color: '#8892b0' } }
+    }
+  }
+});
+</script>
 {% endif %}
 {% endblock %}

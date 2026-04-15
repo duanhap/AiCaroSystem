@@ -1,145 +1,288 @@
 {% extends "admin/base.html" %}
 {% block title %}Training{% endblock %}
+{% block page_title %}Training{% endblock %}
 {% block content %}
-<h4 class="mb-4">⚙️ Cấu hình Training</h4>
 
-<!-- Tab chọn chế độ -->
-<ul class="nav nav-tabs mb-3" id="trainTab">
-  <li class="nav-item">
-    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#selfplay">Self-play</button>
-  </li>
-  <li class="nav-item">
-    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#offline">Offline Retrain</button>
-  </li>
-</ul>
+<!-- TAB PILLS -->
+<div class="tab-pills" id="tabPills">
+  <button class="tab-pill active" onclick="switchTab('selfplay', this)">
+    <i class="bi bi-play-circle me-1"></i>Self-play
+  </button>
+  <button class="tab-pill" onclick="switchTab('offline', this)">
+    <i class="bi bi-database me-1"></i>Offline Retrain
+  </button>
+</div>
 
-<div class="tab-content">
-
-  <!-- SELF-PLAY FORM -->
-  <div class="tab-pane fade show active" id="selfplay">
-    <div class="row g-3" style="max-width:700px">
-      <div class="col-md-6">
-        <label class="form-label">Base model</label>
-        <select class="form-select" id="sp_base">
-          <option value="">Tạo mới</option>
-          {% for cp in checkpoints %}
-          <option value="{{ cp.version }}">{{ cp.version }} ({{ "%.0f"|format(cp.win_rate_vs_random*100 if cp.win_rate_vs_random else 0) }}%)</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="col-md-6">
-        <label class="form-label">Opponent (đấu với ai khi train)</label>
-        <select class="form-select" id="sp_opponent">
-          <option value="self">Chính nó</option>
-          {% for cp in checkpoints %}
-          <option value="{{ cp.version }}">{{ cp.version }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="col-md-6">
-        <label class="form-label">Test vs version</label>
-        <select class="form-select" id="sp_compare">
-          <option value="">Chỉ vs Random</option>
-          {% for cp in checkpoints %}
-          <option value="{{ cp.version }}">{{ cp.version }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="col-md-6">
-        <label class="form-label">Episodes</label>
-        <input type="number" class="form-control" id="sp_episodes" value="5000">
-      </div>
-      <div class="col-md-4"><label class="form-label">Alpha (α)</label>
-        <input type="number" class="form-control" id="sp_alpha" value="0.1" step="0.01"></div>
-      <div class="col-md-4"><label class="form-label">Gamma (γ)</label>
-        <input type="number" class="form-control" id="sp_gamma" value="0.9" step="0.01"></div>
-      <div class="col-md-4"><label class="form-label">ε start</label>
-        <input type="number" class="form-control" id="sp_eps_start" value="1.0" step="0.1"></div>
-      <div class="col-md-4"><label class="form-label">ε min</label>
-        <input type="number" class="form-control" id="sp_eps_min" value="0.01" step="0.01"></div>
-      <div class="col-md-4"><label class="form-label">ε decay</label>
-        <input type="number" class="form-control" id="sp_eps_decay" value="0.995" step="0.001"></div>
-      <div class="col-md-4"><label class="form-label">Test interval</label>
-        <input type="number" class="form-control" id="sp_interval" value="200"></div>
-      <div class="col-md-4"><label class="form-label">Test games</label>
-        <input type="number" class="form-control" id="sp_test_games" value="100"></div>
-      <div class="col-md-4"><label class="form-label">Win rate target (%)</label>
-        <input type="number" class="form-control" id="sp_target" value="90"></div>
-      <div class="col-12">
-        <button class="btn btn-primary" onclick="startSelfPlay()">▶ Bắt đầu Self-play</button>
+<!-- SELF-PLAY -->
+<div id="tab-selfplay">
+  <div class="row g-4">
+    <div class="col-lg-6">
+      <div class="card">
+        <div class="card-header"><i class="bi bi-sliders me-2"></i>Cấu hình Self-play</div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-6">
+              <label class="form-label">Base model</label>
+              <select class="form-select" id="sp_base">
+                <option value="">✨ Tạo mới</option>
+                {% for cp in checkpoints %}
+                <option value="{{ cp.version }}">{{ cp.version }} ({{ "%.0f"|format(cp.win_rate_vs_random*100 if cp.win_rate_vs_random else 0) }}%)</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Opponent khi train</label>
+              <select class="form-select" id="sp_opponent">
+                <option value="self">🔄 Chính nó</option>
+                {% for cp in checkpoints %}
+                <option value="{{ cp.version }}">{{ cp.version }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Test so sánh với</label>
+              <select class="form-select" id="sp_compare">
+                <option value="">Chỉ vs Random</option>
+                {% for cp in checkpoints %}
+                <option value="{{ cp.version }}">{{ cp.version }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Episodes</label>
+              <input type="number" class="form-control" id="sp_episodes" value="5000">
+            </div>
+            <div class="col-4">
+              <label class="form-label">Alpha (α)</label>
+              <input type="number" class="form-control" id="sp_alpha" value="0.1" step="0.01">
+            </div>
+            <div class="col-4">
+              <label class="form-label">Gamma (γ)</label>
+              <input type="number" class="form-control" id="sp_gamma" value="0.9" step="0.01">
+            </div>
+            <div class="col-4">
+              <label class="form-label">ε start</label>
+              <input type="number" class="form-control" id="sp_eps_start" value="1.0" step="0.1">
+            </div>
+            <div class="col-4">
+              <label class="form-label">ε min</label>
+              <input type="number" class="form-control" id="sp_eps_min" value="0.01" step="0.01">
+            </div>
+            <div class="col-4">
+              <label class="form-label">ε decay</label>
+              <input type="number" class="form-control" id="sp_eps_decay" value="0.995" step="0.001">
+            </div>
+            <div class="col-4">
+              <label class="form-label">Test interval</label>
+              <input type="number" class="form-control" id="sp_interval" value="200">
+            </div>
+            <div class="col-6">
+              <label class="form-label">Test games</label>
+              <input type="number" class="form-control" id="sp_test_games" value="100">
+            </div>
+            <div class="col-6">
+              <label class="form-label">Win rate target (%)</label>
+              <input type="number" class="form-control" id="sp_target" value="90">
+            </div>
+            <div class="col-12 mt-2">
+              <button class="btn-accent" onclick="startSelfPlay()">
+                <i class="bi bi-play-fill me-1"></i>Bắt đầu Self-play
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- OFFLINE RETRAIN FORM -->
-  <div class="tab-pane fade" id="offline">
-    <div class="row g-3" style="max-width:700px">
-      <div class="col-md-6">
-        <label class="form-label">Base model</label>
-        <select class="form-select" id="of_base">
-          <option value="">Tạo mới</option>
-          {% for cp in checkpoints %}
-          <option value="{{ cp.version }}">{{ cp.version }}</option>
-          {% endfor %}
-        </select>
+    <!-- PROGRESS PANEL -->
+    <div class="col-lg-6">
+      <div id="idlePanel" class="card h-100 d-flex align-items-center justify-content-center" style="min-height:300px">
+        <div class="text-center" style="color:var(--text-muted)">
+          <i class="bi bi-cpu" style="font-size:3rem;opacity:.3"></i>
+          <div class="mt-3">Cấu hình và bắt đầu training</div>
+        </div>
       </div>
-      <div class="col-md-6">
-        <label class="form-label">Test vs version</label>
-        <select class="form-select" id="of_compare">
-          <option value="">Chỉ vs Random</option>
-          {% for cp in checkpoints %}
-          <option value="{{ cp.version }}">{{ cp.version }}</option>
-          {% endfor %}
-        </select>
+      <div id="progressPanel" class="d-none">
+        <div class="card mb-3">
+          <div class="card-header"><i class="bi bi-activity me-2"></i>Tiến trình</div>
+          <div class="card-body">
+            <div class="d-flex justify-content-between mb-1" style="font-size:.82rem;color:var(--text-muted)">
+              <span>Episode <span id="curEp" style="color:var(--text)">0</span></span>
+              <span id="pctText">0%</span>
+            </div>
+            <div class="progress mb-3">
+              <div id="progressBar" class="progress-bar" style="width:0%;transition:width .3s"></div>
+            </div>
+            <div class="row g-2 mb-3">
+              <div class="col-6">
+                <div style="background:var(--surface2);border-radius:8px;padding:10px;text-align:center">
+                  <div style="font-size:.75rem;color:var(--text-muted)">Epsilon</div>
+                  <div style="font-size:1.1rem;font-weight:700;color:var(--accent)" id="curEps">–</div>
+                </div>
+              </div>
+              <div class="col-6">
+                <div style="background:var(--surface2);border-radius:8px;padding:10px;text-align:center">
+                  <div style="font-size:.75rem;color:var(--text-muted)">Q-table size</div>
+                  <div style="font-size:1.1rem;font-weight:700;color:var(--accent2)" id="curQSize">–</div>
+                </div>
+              </div>
+              <div class="col-6">
+                <div style="background:var(--surface2);border-radius:8px;padding:10px;text-align:center">
+                  <div style="font-size:.75rem;color:var(--text-muted)">vs Random</div>
+                  <div style="font-size:1.1rem;font-weight:700;color:#00d4aa" id="curWR">–</div>
+                </div>
+              </div>
+              <div class="col-6">
+                <div style="background:var(--surface2);border-radius:8px;padding:10px;text-align:center">
+                  <div style="font-size:.75rem;color:var(--text-muted)">vs Version</div>
+                  <div style="font-size:1.1rem;font-weight:700;color:#ffc107" id="curWRV">–</div>
+                </div>
+              </div>
+            </div>
+            <div class="log-box" id="logBox"></div>
+          </div>
+        </div>
       </div>
-      <div class="col-md-4"><label class="form-label">Alpha (α)</label>
-        <input type="number" class="form-control" id="of_alpha" value="0.1" step="0.01"></div>
-      <div class="col-md-4"><label class="form-label">Gamma (γ)</label>
-        <input type="number" class="form-control" id="of_gamma" value="0.9" step="0.01"></div>
-      <div class="col-md-4"><label class="form-label">Test games</label>
-        <input type="number" class="form-control" id="of_test_games" value="100"></div>
-      <div class="col-12">
-        <label class="form-label">Game IDs (comma-separated)</label>
-        <input type="text" class="form-control" id="of_game_ids" placeholder="1,2,3,4,5">
-        <small class="text-muted">Nhập ID các ván muốn dùng để train</small>
-      </div>
-      <div class="col-12">
-        <button class="btn btn-primary" onclick="startOffline()">▶ Bắt đầu Offline Retrain</button>
+
+      <!-- RESULT -->
+      <div id="resultPanel" class="d-none">
+        <div class="card">
+          <div class="card-header" style="color:var(--accent2)"><i class="bi bi-check-circle me-2"></i>Kết quả training</div>
+          <div class="card-body">
+            <div class="row g-3 mb-4">
+              <div class="col-6">
+                <div class="result-card">
+                  <div style="font-size:.8rem;color:var(--text-muted)">vs Random Agent</div>
+                  <div class="big-num" style="color:var(--accent2)" id="resWR">–</div>
+                </div>
+              </div>
+              <div class="col-6" id="resWRVCol">
+                <div class="result-card">
+                  <div style="font-size:.8rem;color:var(--text-muted)">vs Version</div>
+                  <div class="big-num" style="color:var(--accent)" id="resWRV">–</div>
+                </div>
+              </div>
+            </div>
+            <div id="stopReasonDiv" class="mb-3" style="font-size:.82rem;color:var(--text-muted)"></div>
+            <div class="d-flex gap-2">
+              <button class="btn-teal" onclick="commitAction('deploy')">
+                <i class="bi bi-rocket me-1"></i>Deploy ngay
+              </button>
+              <button class="btn-accent" onclick="commitAction('save')">
+                <i class="bi bi-floppy me-1"></i>Lưu lại
+              </button>
+              <button class="btn-ghost" onclick="commitAction('discard')">
+                <i class="bi bi-trash me-1"></i>Bỏ qua
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- PROGRESS SECTION -->
-<div id="progressSection" class="mt-4 d-none">
-  <hr>
-  <h5>📊 Tiến trình training</h5>
-  <div class="progress mb-2" style="height:24px">
-    <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated"
-         style="width:0%">0%</div>
-  </div>
-  <div class="row mb-2">
-    <div class="col-auto"><span class="badge bg-secondary">Episode: <span id="curEp">0</span></span></div>
-    <div class="col-auto"><span class="badge bg-info">ε: <span id="curEps">-</span></span></div>
-    <div class="col-auto"><span class="badge bg-success">vs Random: <span id="curWR">-</span></span></div>
-    <div class="col-auto"><span class="badge bg-warning text-dark">vs Version: <span id="curWRV">-</span></span></div>
-  </div>
-  <div id="logBox" class="bg-dark text-light p-3 rounded" style="height:200px;overflow-y:auto;font-size:0.85rem;font-family:monospace"></div>
-</div>
-
-<!-- RESULT SECTION -->
-<div id="resultSection" class="mt-4 d-none">
-  <hr>
-  <h5>✅ Kết quả training</h5>
-  <div class="alert alert-success">
-    <div>vs Random Agent: <strong id="resWR">-</strong></div>
-    <div id="resWRVDiv">vs Version: <strong id="resWRV">-</strong></div>
-    <div id="stopReasonDiv" class="text-muted small"></div>
-  </div>
-  <div class="d-flex gap-2">
-    <button class="btn btn-success" onclick="commitAction('deploy')">🚀 Deploy ngay</button>
-    <button class="btn btn-primary" onclick="commitAction('save')">💾 Lưu lại</button>
-    <button class="btn btn-outline-danger" onclick="commitAction('discard')">🗑 Bỏ qua</button>
+<!-- OFFLINE RETRAIN -->
+<div id="tab-offline" class="d-none">
+  <div class="row g-4">
+    <div class="col-lg-6">
+      <div class="card">
+        <div class="card-header"><i class="bi bi-database me-2"></i>Cấu hình Offline Retrain</div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-6">
+              <label class="form-label">Base model</label>
+              <select class="form-select" id="of_base">
+                <option value="">✨ Tạo mới</option>
+                {% for cp in checkpoints %}
+                <option value="{{ cp.version }}">{{ cp.version }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Test so sánh với</label>
+              <select class="form-select" id="of_compare">
+                <option value="">Chỉ vs Random</option>
+                {% for cp in checkpoints %}
+                <option value="{{ cp.version }}">{{ cp.version }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-4">
+              <label class="form-label">Alpha (α)</label>
+              <input type="number" class="form-control" id="of_alpha" value="0.1" step="0.01">
+            </div>
+            <div class="col-4">
+              <label class="form-label">Gamma (γ)</label>
+              <input type="number" class="form-control" id="of_gamma" value="0.9" step="0.01">
+            </div>
+            <div class="col-4">
+              <label class="form-label">Test games</label>
+              <input type="number" class="form-control" id="of_test_games" value="100">
+            </div>
+            <div class="col-12">
+              <label class="form-label">Game IDs (comma-separated)</label>
+              <input type="text" class="form-control" id="of_game_ids" placeholder="1,2,3,4,5">
+              <div style="font-size:.75rem;color:var(--text-muted);margin-top:4px">ID các ván chơi muốn dùng để train</div>
+            </div>
+            <div class="col-12 mt-2">
+              <button class="btn-accent" onclick="startOffline()">
+                <i class="bi bi-play-fill me-1"></i>Bắt đầu Offline Retrain
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div id="offlineIdlePanel" class="card h-100 d-flex align-items-center justify-content-center" style="min-height:300px">
+        <div class="text-center" style="color:var(--text-muted)">
+          <i class="bi bi-database" style="font-size:3rem;opacity:.3"></i>
+          <div class="mt-3">Chọn dữ liệu và bắt đầu retrain</div>
+        </div>
+      </div>
+      <div id="offlineProgressPanel" class="d-none">
+        <div class="card mb-3">
+          <div class="card-header"><i class="bi bi-activity me-2"></i>Tiến trình</div>
+          <div class="card-body">
+            <div class="d-flex justify-content-between mb-1" style="font-size:.82rem;color:var(--text-muted)">
+              <span>Ván <span id="ofCurGame" style="color:var(--text)">0</span> / <span id="ofTotal">?</span></span>
+              <span id="ofPctText">0%</span>
+            </div>
+            <div class="progress mb-3">
+              <div id="ofProgressBar" class="progress-bar" style="width:0%;transition:width .3s"></div>
+            </div>
+            <div class="log-box" id="ofLogBox"></div>
+          </div>
+        </div>
+      </div>
+      <div id="offlineResultPanel" class="d-none">
+        <div class="card">
+          <div class="card-header" style="color:var(--accent2)"><i class="bi bi-check-circle me-2"></i>Kết quả Retrain</div>
+          <div class="card-body">
+            <div class="row g-3 mb-4">
+              <div class="col-6">
+                <div class="result-card">
+                  <div style="font-size:.8rem;color:var(--text-muted)">vs Random Agent</div>
+                  <div class="big-num" style="color:var(--accent2)" id="ofResWR">–</div>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="result-card">
+                  <div style="font-size:.8rem;color:var(--text-muted)">vs Version</div>
+                  <div class="big-num" style="color:var(--accent)" id="ofResWRV">–</div>
+                </div>
+              </div>
+            </div>
+            <div class="d-flex gap-2">
+              <button class="btn-teal" onclick="commitAction('deploy')"><i class="bi bi-rocket me-1"></i>Deploy ngay</button>
+              <button class="btn-accent" onclick="commitAction('save')"><i class="bi bi-floppy me-1"></i>Lưu lại</button>
+              <button class="btn-ghost" onclick="commitAction('discard')"><i class="bi bi-trash me-1"></i>Bỏ qua</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 {% endblock %}
@@ -147,6 +290,13 @@
 {% block scripts %}
 <script>
 let totalEpisodes = 5000;
+
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-pill').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-selfplay').classList.toggle('d-none', name !== 'selfplay');
+  document.getElementById('tab-offline').classList.toggle('d-none', name !== 'offline');
+}
 
 function startSelfPlay() {
   totalEpisodes = parseInt(document.getElementById('sp_episodes').value);
@@ -164,7 +314,11 @@ function startSelfPlay() {
     test_games: document.getElementById('sp_test_games').value,
     win_rate_target: document.getElementById('sp_target').value / 100,
   });
-  startStream(`/admin/training/selfplay/stream?${params}`);
+  document.getElementById('idlePanel').classList.add('d-none');
+  document.getElementById('progressPanel').classList.remove('d-none');
+  document.getElementById('resultPanel').classList.add('d-none');
+  document.getElementById('logBox').innerHTML = '';
+  startStream(`/admin/training/selfplay/stream?${params}`, 'sp');
 }
 
 function startOffline() {
@@ -176,60 +330,67 @@ function startOffline() {
     gamma: document.getElementById('of_gamma').value,
     test_games: document.getElementById('of_test_games').value,
   });
-  startStream(`/admin/training/offline/stream?${params}`);
+  document.getElementById('offlineIdlePanel').classList.add('d-none');
+  document.getElementById('offlineProgressPanel').classList.remove('d-none');
+  document.getElementById('offlineResultPanel').classList.add('d-none');
+  document.getElementById('ofLogBox').innerHTML = '';
+  startStream(`/admin/training/offline/stream?${params}`, 'of');
 }
 
-function startStream(url) {
-  document.getElementById('progressSection').classList.remove('d-none');
-  document.getElementById('resultSection').classList.add('d-none');
-  document.getElementById('logBox').innerHTML = '';
-
+function startStream(url, prefix) {
   const es = new EventSource(url);
   es.onmessage = function(e) {
     const data = JSON.parse(e.data);
+    if (data.status === 'done') { es.close(); showResult(data, prefix); return; }
 
-    if (data.status === 'done') {
-      es.close();
-      showResult(data);
-      return;
+    if (prefix === 'sp') {
+      const ep = data.episode || 0;
+      const pct = Math.round((ep / totalEpisodes) * 100);
+      document.getElementById('progressBar').style.width = pct + '%';
+      document.getElementById('pctText').textContent = pct + '%';
+      document.getElementById('curEp').textContent = ep;
+      if (data.epsilon !== undefined) document.getElementById('curEps').textContent = data.epsilon;
+      if (data.q_table_size !== undefined) document.getElementById('curQSize').textContent = data.q_table_size.toLocaleString();
+      if (data.win_rate_vs_random !== undefined)
+        document.getElementById('curWR').textContent = (data.win_rate_vs_random * 100).toFixed(1) + '%';
+      if (data.win_rate_vs_version != null)
+        document.getElementById('curWRV').textContent = (data.win_rate_vs_version * 100).toFixed(1) + '%';
+      const log = document.getElementById('logBox');
+      const line = document.createElement('div');
+      line.className = 'log-line' + (data.win_rate_vs_random >= 0.8 ? ' good' : '');
+      line.textContent = `[ep ${ep}] ε=${data.epsilon} | vs_random=${data.win_rate_vs_random !== undefined ? (data.win_rate_vs_random*100).toFixed(1)+'%' : '-'}`;
+      log.appendChild(line); log.scrollTop = log.scrollHeight;
+    } else {
+      const g = data.game_idx || 0, t = data.total || 1;
+      const pct = Math.round((g / t) * 100);
+      document.getElementById('ofProgressBar').style.width = pct + '%';
+      document.getElementById('ofPctText').textContent = pct + '%';
+      document.getElementById('ofCurGame').textContent = g;
+      document.getElementById('ofTotal').textContent = t;
+      const log = document.getElementById('ofLogBox');
+      const line = document.createElement('div');
+      line.className = 'log-line';
+      line.textContent = `Ván ${g}/${t} xử lý xong`;
+      log.appendChild(line); log.scrollTop = log.scrollHeight;
     }
-
-    // Cập nhật progress
-    const ep = data.episode || data.game_idx || 0;
-    const total = data.total || totalEpisodes;
-    const pct = Math.round((ep / total) * 100);
-    document.getElementById('progressBar').style.width = pct + '%';
-    document.getElementById('progressBar').textContent = pct + '%';
-    document.getElementById('curEp').textContent = ep;
-    if (data.epsilon !== undefined) document.getElementById('curEps').textContent = data.epsilon;
-    if (data.win_rate_vs_random !== undefined)
-      document.getElementById('curWR').textContent = (data.win_rate_vs_random * 100).toFixed(1) + '%';
-    if (data.win_rate_vs_version !== undefined && data.win_rate_vs_version !== null)
-      document.getElementById('curWRV').textContent = (data.win_rate_vs_version * 100).toFixed(1) + '%';
-
-    // Log box
-    const log = document.getElementById('logBox');
-    log.innerHTML += `ep=${ep} | ε=${data.epsilon ?? '-'} | vs_random=${data.win_rate_vs_random !== undefined ? (data.win_rate_vs_random*100).toFixed(1)+'%' : '-'}\n`;
-    log.scrollTop = log.scrollHeight;
   };
 }
 
-function showResult(data) {
-  document.getElementById('resultSection').classList.remove('d-none');
-  document.getElementById('progressBar').classList.remove('progress-bar-animated');
-  document.getElementById('progressBar').style.width = '100%';
-  document.getElementById('progressBar').textContent = 'Hoàn tất';
-
-  document.getElementById('resWR').textContent =
-    data.win_rate_vs_random !== null ? (data.win_rate_vs_random * 100).toFixed(1) + '%' : '-';
-  if (data.win_rate_vs_version) {
-    document.getElementById('resWRV').textContent = (data.win_rate_vs_version * 100).toFixed(1) + '%';
+function showResult(data, prefix) {
+  if (prefix === 'sp') {
+    document.getElementById('progressPanel').classList.add('d-none');
+    document.getElementById('resultPanel').classList.remove('d-none');
+    document.getElementById('resWR').textContent = data.win_rate_vs_random != null ? (data.win_rate_vs_random*100).toFixed(1)+'%' : '–';
+    document.getElementById('resWRV').textContent = data.win_rate_vs_version != null ? (data.win_rate_vs_version*100).toFixed(1)+'%' : '–';
+    if (data.stop_reason) {
+      document.getElementById('stopReasonDiv').textContent = '⚡ Dừng sớm: ' +
+        (data.stop_reason === 'win_rate_target' ? 'Đạt win rate target' : 'Q-table hội tụ');
+    }
   } else {
-    document.getElementById('resWRVDiv').classList.add('d-none');
-  }
-  if (data.stop_reason) {
-    document.getElementById('stopReasonDiv').textContent =
-      'Dừng sớm: ' + (data.stop_reason === 'win_rate_target' ? 'Đạt win rate target' : 'Q-table hội tụ');
+    document.getElementById('offlineProgressPanel').classList.add('d-none');
+    document.getElementById('offlineResultPanel').classList.remove('d-none');
+    document.getElementById('ofResWR').textContent = data.win_rate_vs_random != null ? (data.win_rate_vs_random*100).toFixed(1)+'%' : '–';
+    document.getElementById('ofResWRV').textContent = data.win_rate_vs_version != null ? (data.win_rate_vs_version*100).toFixed(1)+'%' : '–';
   }
 }
 

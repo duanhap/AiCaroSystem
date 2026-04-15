@@ -5,21 +5,172 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Admin – AI Caro{% endblock %}</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --sidebar-w: 240px;
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3250;
+      --accent: #6c63ff;
+      --accent2: #00d4aa;
+      --text: #e2e8f0;
+      --text-muted: #8892b0;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; display: flex; min-height: 100vh; }
+
+    /* SIDEBAR */
+    .sidebar {
+      width: var(--sidebar-w); background: var(--surface); border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; position: fixed; top: 0; left: 0; height: 100vh; z-index: 100;
+    }
+    .sidebar-brand {
+      padding: 20px 20px 16px; border-bottom: 1px solid var(--border);
+      font-size: 1.1rem; font-weight: 700; color: var(--accent);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .sidebar-brand .logo { font-size: 1.5rem; }
+    .sidebar-nav { padding: 12px 0; flex: 1; }
+    .nav-item { display: block; padding: 10px 20px; color: var(--text-muted); text-decoration: none;
+      display: flex; align-items: center; gap: 10px; font-size: 0.9rem; transition: all .2s;
+      border-left: 3px solid transparent; }
+    .nav-item:hover { color: var(--text); background: var(--surface2); }
+    .nav-item.active { color: var(--accent); background: rgba(108,99,255,.1); border-left-color: var(--accent); }
+    .nav-item i { font-size: 1rem; width: 18px; }
+    .sidebar-footer { padding: 16px 20px; border-top: 1px solid var(--border); font-size: 0.75rem; color: var(--text-muted); }
+
+    /* MAIN */
+    .main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; }
+    .topbar {
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: 14px 28px; display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 50;
+    }
+    .topbar-title { font-size: 1rem; font-weight: 600; color: var(--text); }
+    .topbar-badge { background: var(--accent2); color: #000; font-size: 0.7rem; padding: 2px 8px; border-radius: 20px; font-weight: 600; }
+    .content { padding: 28px; flex: 1; }
+
+    /* CARDS */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+    .card-header { background: var(--surface2); border-bottom: 1px solid var(--border); padding: 14px 20px; font-weight: 600; font-size: 0.9rem; }
+    .card-body { padding: 20px; }
+
+    /* STAT CARDS */
+    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+    .stat-card .stat-icon { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
+    .stat-card .stat-value { font-size: 1.8rem; font-weight: 700; line-height: 1; }
+    .stat-card .stat-label { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
+
+    /* FORMS */
+    .form-label { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 5px; font-weight: 500; }
+    .form-control, .form-select {
+      background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+      border-radius: 8px; font-size: 0.88rem; padding: 8px 12px;
+    }
+    .form-control:focus, .form-select:focus {
+      background: var(--surface2); border-color: var(--accent); color: var(--text);
+      box-shadow: 0 0 0 3px rgba(108,99,255,.2);
+    }
+    .form-control::placeholder { color: var(--text-muted); }
+    .form-select option { background: var(--surface2); }
+
+    /* BUTTONS */
+    .btn-accent { background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 9px 18px; font-size: 0.88rem; font-weight: 500; }
+    .btn-accent:hover { background: #5a52e0; color: #fff; }
+    .btn-teal { background: var(--accent2); color: #000; border: none; border-radius: 8px; padding: 9px 18px; font-size: 0.88rem; font-weight: 500; }
+    .btn-teal:hover { background: #00b894; color: #000; }
+    .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text-muted); border-radius: 8px; padding: 9px 18px; font-size: 0.88rem; }
+    .btn-ghost:hover { border-color: var(--text-muted); color: var(--text); }
+    .btn-danger-ghost { background: transparent; border: 1px solid #e74c3c44; color: #e74c3c; border-radius: 8px; padding: 6px 12px; font-size: 0.82rem; }
+    .btn-danger-ghost:hover { background: #e74c3c22; }
+
+    /* TABS */
+    .tab-pills { display: flex; gap: 4px; background: var(--surface2); padding: 4px; border-radius: 10px; width: fit-content; margin-bottom: 24px; }
+    .tab-pill { padding: 7px 18px; border-radius: 7px; font-size: 0.85rem; cursor: pointer; color: var(--text-muted); border: none; background: transparent; transition: all .2s; }
+    .tab-pill.active { background: var(--accent); color: #fff; }
+
+    /* PROGRESS */
+    .progress { background: var(--surface2); border-radius: 8px; height: 10px; }
+    .progress-bar { background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 8px; }
+
+    /* LOG BOX */
+    .log-box { background: #0a0c14; border: 1px solid var(--border); border-radius: 8px; padding: 14px; height: 180px; overflow-y: auto; font-size: 0.8rem; font-family: 'Consolas', monospace; color: #a8b2d8; }
+    .log-box .log-line { padding: 1px 0; }
+    .log-box .log-line.good { color: var(--accent2); }
+
+    /* TABLE */
+    .table { color: var(--text); }
+    .table thead th { background: var(--surface2); border-color: var(--border); font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; padding: 12px 16px; }
+    .table tbody td { border-color: var(--border); padding: 12px 16px; font-size: 0.88rem; vertical-align: middle; }
+    .table tbody tr:hover td { background: var(--surface2); }
+    .table tbody tr.deployed td { background: rgba(0,212,170,.05); }
+
+    /* BADGES */
+    .badge-mode { background: rgba(108,99,255,.2); color: var(--accent); font-size: 0.75rem; padding: 3px 8px; border-radius: 6px; font-weight: 500; }
+    .badge-live { background: rgba(0,212,170,.2); color: var(--accent2); font-size: 0.75rem; padding: 3px 8px; border-radius: 6px; font-weight: 600; }
+    .badge-wr { font-size: 0.82rem; padding: 3px 8px; border-radius: 6px; font-weight: 600; }
+    .badge-wr.good { background: rgba(0,212,170,.15); color: var(--accent2); }
+    .badge-wr.mid { background: rgba(255,193,7,.15); color: #ffc107; }
+    .badge-wr.bad { background: rgba(231,76,60,.15); color: #e74c3c; }
+
+    /* RESULT CARDS */
+    .result-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 24px; text-align: center; }
+    .result-card .big-num { font-size: 2.5rem; font-weight: 800; }
+    .result-card .sub { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
+
+    /* SECTION TITLE */
+    .section-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 14px; }
+
+    /* SCROLLBAR */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--surface); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
 </head>
 <body>
-<nav class="navbar navbar-dark bg-dark px-3">
-  <span class="navbar-brand">🤖 AI Caro Admin</span>
-  <div class="d-flex gap-3">
-    <a href="/admin/training/" class="text-white text-decoration-none">Training</a>
-    <a href="/admin/checkpoints/" class="text-white text-decoration-none">Checkpoints</a>
-    <a href="/admin/evaluation/" class="text-white text-decoration-none">Evaluation</a>
-    <a href="/admin/stats/" class="text-white text-decoration-none">Stats</a>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <span class="logo">♟</span>
+    <div>
+      <div>AI Caro</div>
+      <div style="font-size:.7rem;color:var(--text-muted);font-weight:400">Admin Panel</div>
+    </div>
   </div>
-</nav>
-<div class="container-fluid py-4">
-  {% block content %}{% endblock %}
+  <nav class="sidebar-nav">
+    <a href="/admin/stats/" class="nav-item {% if request.url.path.startswith('/admin/stats') %}active{% endif %}">
+      <i class="bi bi-grid-1x2"></i> Dashboard
+    </a>
+    <a href="/admin/training/" class="nav-item {% if request.url.path.startswith('/admin/training') %}active{% endif %}">
+      <i class="bi bi-cpu"></i> Training
+    </a>
+    <a href="/admin/checkpoints/" class="nav-item {% if request.url.path.startswith('/admin/checkpoints') %}active{% endif %}">
+      <i class="bi bi-archive"></i> Checkpoints
+    </a>
+    <a href="/admin/evaluation/" class="nav-item {% if request.url.path.startswith('/admin/evaluation') %}active{% endif %}">
+      <i class="bi bi-clipboard-data"></i> Evaluation
+    </a>
+  </nav>
+  <div class="sidebar-footer">
+    <div>Q-learning · 7×7 · 4-win</div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-title">{% block page_title %}{% endblock %}</div>
+    <span class="topbar-badge">● LIVE</span>
+  </div>
+  <div class="content">
+    {% block content %}{% endblock %}
+  </div>
 </div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 {% block scripts %}{% endblock %}
 </body>

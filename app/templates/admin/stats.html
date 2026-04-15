@@ -1,41 +1,122 @@
 {% extends "admin/base.html" %}
-{% block title %}Stats{% endblock %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
 {% block content %}
-<h4 class="mb-4">📈 Thống kê hệ thống</h4>
 
+<!-- STAT CARDS -->
 <div class="row g-3 mb-4">
   <div class="col-md-3">
-    <div class="card text-center">
-      <div class="card-body">
-        <h6>Version đang chạy</h6>
-        <h3 class="text-success">{{ deployed.version if deployed else '–' }}</h3>
-        {% if deployed %}
-        <small>vs Random: {{ "%.1f"|format(deployed.win_rate_vs_random * 100) if deployed.win_rate_vs_random else '–' }}%</small>
-        {% endif %}
+    <div class="stat-card">
+      <div class="d-flex align-items-center gap-3 mb-3">
+        <div class="stat-icon" style="background:rgba(108,99,255,.15)">
+          <i class="bi bi-robot" style="color:var(--accent)"></i>
+        </div>
+        <div class="stat-label">Version đang chạy</div>
+      </div>
+      <div class="stat-value" style="color:var(--accent2)">{{ deployed.version if deployed else '–' }}</div>
+      <div class="stat-label mt-1">
+        {% if deployed and deployed.win_rate_vs_random %}
+          Win rate {{ "%.1f"|format(deployed.win_rate_vs_random * 100) }}% vs Random
+        {% else %}Chưa deploy{% endif %}
       </div>
     </div>
   </div>
   <div class="col-md-3">
-    <div class="card text-center">
-      <div class="card-body">
-        <h6>Tổng checkpoints</h6>
-        <h3>{{ checkpoints|length }}</h3>
+    <div class="stat-card">
+      <div class="d-flex align-items-center gap-3 mb-3">
+        <div class="stat-icon" style="background:rgba(0,212,170,.15)">
+          <i class="bi bi-archive" style="color:var(--accent2)"></i>
+        </div>
+        <div class="stat-label">Tổng checkpoints</div>
       </div>
+      <div class="stat-value">{{ checkpoints|length }}</div>
+      <div class="stat-label mt-1">phiên bản đã lưu</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="stat-card">
+      <div class="d-flex align-items-center gap-3 mb-3">
+        <div class="stat-icon" style="background:rgba(255,193,7,.15)">
+          <i class="bi bi-controller" style="color:#ffc107"></i>
+        </div>
+        <div class="stat-label">Bàn cờ</div>
+      </div>
+      <div class="stat-value">7×7</div>
+      <div class="stat-label mt-1">nối 4 quân thắng</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="stat-card">
+      <div class="d-flex align-items-center gap-3 mb-3">
+        <div class="stat-icon" style="background:rgba(231,76,60,.15)">
+          <i class="bi bi-lightning" style="color:#e74c3c"></i>
+        </div>
+        <div class="stat-label">Thuật toán</div>
+      </div>
+      <div class="stat-value" style="font-size:1.3rem">Q-learning</div>
+      <div class="stat-label mt-1">Reinforcement Learning</div>
     </div>
   </div>
 </div>
 
-<!-- Learning Curve -->
-<h5>Learning Curve</h5>
-<div class="mb-2">
-  <select class="form-select w-auto" id="cpSelect" onchange="loadCurve()">
-    <option value="">Chọn checkpoint...</option>
-    {% for cp in checkpoints %}
-    <option value="{{ cp.id }}">{{ cp.version }}</option>
-    {% endfor %}
-  </select>
+<!-- LEARNING CURVE -->
+<div class="card">
+  <div class="card-header d-flex align-items-center justify-content-between">
+    <span><i class="bi bi-graph-up me-2"></i>Learning Curve</span>
+    <select class="form-select" id="cpSelect" onchange="loadCurve()" style="width:200px">
+      <option value="">Chọn checkpoint...</option>
+      {% for cp in checkpoints %}
+      <option value="{{ cp.id }}">{{ cp.version }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="card-body">
+    <canvas id="curveChart" height="60"></canvas>
+    <div id="noData" class="text-center py-4" style="color:var(--text-muted)">
+      <i class="bi bi-bar-chart" style="font-size:2rem"></i>
+      <div class="mt-2">Chọn checkpoint để xem learning curve</div>
+    </div>
+  </div>
 </div>
-<canvas id="curveChart" height="80"></canvas>
+
+<!-- CHECKPOINT LIST -->
+<div class="mt-4">
+  <div class="section-title">Danh sách phiên bản gần đây</div>
+  <div class="card">
+    <div class="card-body p-0">
+      <table class="table mb-0">
+        <thead>
+          <tr>
+            <th>Version</th><th>Mode</th><th>Episodes</th>
+            <th>vs Random</th><th>vs Version</th><th>Status</th><th>Ngày tạo</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for cp in checkpoints[:5] %}
+          <tr {% if cp.is_deployed %}class="deployed"{% endif %}>
+            <td><strong>{{ cp.version }}</strong></td>
+            <td><span class="badge-mode">{{ cp.train_mode }}</span></td>
+            <td>{{ cp.episodes_trained or '–' }}</td>
+            <td>
+              {% if cp.win_rate_vs_random is not none %}
+                {% set wr = cp.win_rate_vs_random * 100 %}
+                <span class="badge-wr {{ 'good' if wr >= 80 else ('mid' if wr >= 50 else 'bad') }}">
+                  {{ "%.1f"|format(wr) }}%
+                </span>
+              {% else %}–{% endif %}
+            </td>
+            <td>{{ "%.1f"|format(cp.win_rate_vs_version * 100) + '%' if cp.win_rate_vs_version is not none else '–' }}</td>
+            <td>{% if cp.is_deployed %}<span class="badge-live">● LIVE</span>{% else %}–{% endif %}</td>
+            <td style="color:var(--text-muted);font-size:.8rem">{{ cp.created_at.strftime('%d/%m %H:%M') if cp.created_at else '–' }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="7" class="text-center py-4" style="color:var(--text-muted)">Chưa có checkpoint nào</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -44,42 +125,42 @@ let curveChart = null;
 
 function loadCurve() {
   const id = document.getElementById('cpSelect').value;
-  if (!id) return;
+  const noData = document.getElementById('noData');
+  const canvas = document.getElementById('curveChart');
+  if (!id) { noData.style.display = 'block'; canvas.style.display = 'none'; return; }
 
   fetch(`/admin/stats/curve/${id}`)
     .then(r => r.json())
     .then(data => {
+      noData.style.display = 'none';
+      canvas.style.display = 'block';
       if (curveChart) curveChart.destroy();
-      const ctx = document.getElementById('curveChart').getContext('2d');
+      const ctx = canvas.getContext('2d');
       curveChart = new Chart(ctx, {
         type: 'line',
         data: {
           labels: data.labels,
           datasets: [
-            {
-              label: 'Win rate vs Random',
-              data: data.win_rate_vs_random.map(v => v ? (v * 100).toFixed(1) : null),
-              borderColor: 'rgb(75, 192, 192)',
-              tension: 0.3,
-              fill: false,
-            },
-            {
-              label: 'Win rate vs Version',
-              data: data.win_rate_vs_version.map(v => v ? (v * 100).toFixed(1) : null),
-              borderColor: 'rgb(255, 159, 64)',
-              tension: 0.3,
-              fill: false,
-            },
+            { label: 'vs Random (%)', data: data.win_rate_vs_random.map(v => v ? +(v*100).toFixed(1) : null),
+              borderColor: '#6c63ff', backgroundColor: 'rgba(108,99,255,.1)', tension: 0.4, fill: true, pointRadius: 3 },
+            { label: 'vs Version (%)', data: data.win_rate_vs_version.map(v => v ? +(v*100).toFixed(1) : null),
+              borderColor: '#00d4aa', backgroundColor: 'rgba(0,212,170,.1)', tension: 0.4, fill: true, pointRadius: 3 },
           ]
         },
         options: {
+          plugins: { legend: { labels: { color: '#e2e8f0', font: { size: 12 } } } },
           scales: {
-            y: { min: 0, max: 100, title: { display: true, text: 'Win rate (%)' } },
-            x: { title: { display: true, text: 'Episode' } }
+            y: { min: 0, max: 100, grid: { color: '#2e3250' }, ticks: { color: '#8892b0' },
+                 title: { display: true, text: 'Win rate (%)', color: '#8892b0' } },
+            x: { grid: { color: '#2e3250' }, ticks: { color: '#8892b0' },
+                 title: { display: true, text: 'Episode', color: '#8892b0' } }
           }
         }
       });
     });
 }
+
+// Ẩn canvas ban đầu
+document.getElementById('curveChart').style.display = 'none';
 </script>
 {% endblock %}
