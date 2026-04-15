@@ -66,11 +66,15 @@ def start_self_play(
         # Lần đầu tạo checkpoint tạm — dùng timestamp để tránh duplicate
         if temp_cp_id[0] is None:
             tmp_version = f"{new_version}_tmp_{int(time.time())}"
-            # Xóa các _tmp cũ của cùng new_version nếu còn sót
+            # Xóa các _tmp cũ của cùng new_version nếu còn sót (xóa logs trước)
             from app.models.checkpoint import Checkpoint as CpModel
-            db.query(CpModel).filter(
+            from app.models.training_log import TrainingLog as LogModel
+            old_tmps = db.query(CpModel).filter(
                 CpModel.version.like(f"{new_version}_tmp%")
-            ).delete(synchronize_session=False)
+            ).all()
+            for old in old_tmps:
+                db.query(LogModel).filter(LogModel.checkpoint_id == old.id).delete()
+                db.delete(old)
             db.commit()
 
             cp = checkpoint_repo.create(
