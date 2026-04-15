@@ -110,7 +110,13 @@ def checkpoint_detail_json(checkpoint_id: int, db: Session = Depends(get_db)):
         try:
             with open(cp.file_path, "rb") as f:
                 data = pickle.load(f)
-            all_vals = [v for actions in data.values() for v in actions.values()]
+            # Hỗ trợ cả format cũ (dict of dict) và mới (dict of list/array)
+            all_vals = []
+            for actions in data.values():
+                if isinstance(actions, dict):
+                    all_vals.extend(actions.values())
+                else:
+                    all_vals.extend(float(x) for x in actions)
             total = len(all_vals)
             pos = sum(1 for v in all_vals if v > 0.1)
             neg = sum(1 for v in all_vals if v < -0.1)
