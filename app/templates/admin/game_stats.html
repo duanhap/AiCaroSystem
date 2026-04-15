@@ -1,0 +1,140 @@
+{% extends "admin/base.html" %}
+{% block title %}Dữ liệu người chơi{% endblock %}
+{% block page_title %}Dữ liệu người chơi{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-4">
+  <div class="section-title mb-0">Thống kê ván chơi theo ngày</div>
+  <a href="/admin/training/" class="btn-accent" style="text-decoration:none;font-size:.85rem">
+    <i class="bi bi-cpu me-1"></i>Đến trang Training
+  </a>
+</div>
+
+{% if stats %}
+<div class="card mb-4">
+  <div class="card-header d-flex align-items-center justify-content-between">
+    <span><i class="bi bi-calendar-data me-2"></i>Chọn ngày để Offline Retrain</span>
+    <div style="font-size:.82rem;color:var(--text-muted)">
+      Tổng đã chọn: <span id="totalSelected" style="color:var(--accent2);font-weight:700">0</span> ván
+    </div>
+  </div>
+  <div class="card-body p-0">
+    <table class="table mb-0">
+      <thead>
+        <tr>
+          <th style="width:40px">
+            <input type="checkbox" id="selectAll" onchange="toggleAll()"
+                   style="accent-color:var(--accent);width:16px;height:16px">
+          </th>
+          <th>Ngày</th>
+          <th>Tổng ván</th>
+          <th>AI thắng</th>
+          <th>Người thắng</th>
+          <th>Hòa</th>
+          <th>Tỉ lệ AI thua</th>
+          <th>Đánh giá</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in stats %}
+        <tr>
+          <td>
+            <input type="checkbox" class="day-check" value="{{ s.game_ids | join(',') }}"
+                   data-count="{{ s.game_ids | length }}" onchange="updateTotal()"
+                   style="accent-color:var(--accent);width:16px;height:16px">
+          </td>
+          <td style="font-weight:600">{{ s.date }}</td>
+          <td>{{ s.total_games }}</td>
+          <td><span style="color:var(--accent2)">{{ s.ai_wins }}</span></td>
+          <td><span style="color:#e74c3c">{{ s.player_wins }}</span></td>
+          <td style="color:var(--text-muted)">{{ s.draws }}</td>
+          <td>
+            {% set pct = (s.ai_lose_rate * 100) | int %}
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="flex:1;background:var(--surface2);border-radius:4px;height:6px">
+                <div style="width:{{ pct }}%;background:{% if pct >= 50 %}#e74c3c{% elif pct >= 30 %}#ffc107{% else %}var(--accent2){% endif %};height:6px;border-radius:4px"></div>
+              </div>
+              <span style="font-size:.82rem;min-width:36px">{{ pct }}%</span>
+            </div>
+          </td>
+          <td>
+            {% if s.ai_lose_rate >= 0.5 %}
+              <span style="background:rgba(231,76,60,.15);color:#e74c3c;font-size:.75rem;padding:2px 8px;border-radius:6px">
+                ⭐ Nên train
+              </span>
+            {% elif s.ai_lose_rate >= 0.3 %}
+              <span style="background:rgba(255,193,7,.15);color:#ffc107;font-size:.75rem;padding:2px 8px;border-radius:6px">
+                Khá tốt
+              </span>
+            {% else %}
+              <span style="background:rgba(0,212,170,.1);color:var(--accent2);font-size:.75rem;padding:2px 8px;border-radius:6px">
+                AI đang mạnh
+              </span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <div style="font-size:.85rem;color:var(--text-muted);margin-bottom:12px">
+      Sau khi chọn ngày, copy Game IDs vào form Offline Retrain:
+    </div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <input type="text" id="selectedIds" class="form-control" readonly
+             placeholder="Chọn ngày ở trên để lấy Game IDs..."
+             style="font-family:monospace;font-size:.85rem">
+      <button onclick="copyIds()" class="btn-accent" style="white-space:nowrap">
+        <i class="bi bi-clipboard me-1"></i>Copy IDs
+      </button>
+      <a id="goTrainBtn" href="/admin/training/" class="btn-teal" style="text-decoration:none;white-space:nowrap;display:none">
+        <i class="bi bi-cpu me-1"></i>Đến Training
+      </a>
+    </div>
+  </div>
+</div>
+
+{% else %}
+<div style="text-align:center;padding:60px;color:var(--text-muted)">
+  <i class="bi bi-controller" style="font-size:3rem;opacity:.3"></i>
+  <div class="mt-3">Chưa có dữ liệu ván chơi nào. Hãy chơi vs Bot trước!</div>
+  <a href="/game/pve" style="color:var(--accent);margin-top:8px;display:inline-block">Chơi ngay →</a>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function updateTotal() {
+  const checks = document.querySelectorAll('.day-check:checked');
+  let total = 0, ids = [];
+  checks.forEach(c => {
+    total += parseInt(c.dataset.count);
+    if (c.value) ids = ids.concat(c.value.split(',').filter(x => x));
+  });
+  document.getElementById('totalSelected').textContent = total;
+  document.getElementById('selectedIds').value = ids.join(',');
+  document.getElementById('goTrainBtn').style.display = ids.length ? 'inline-block' : 'none';
+}
+
+function toggleAll() {
+  const all = document.getElementById('selectAll').checked;
+  document.querySelectorAll('.day-check').forEach(c => c.checked = all);
+  updateTotal();
+}
+
+function copyIds() {
+  const val = document.getElementById('selectedIds').value;
+  if (!val) return;
+  navigator.clipboard.writeText(val).then(() => {
+    const btn = event.target.closest('button');
+    btn.textContent = '✓ Đã copy!';
+    setTimeout(() => btn.innerHTML = '<i class="bi bi-clipboard me-1"></i>Copy IDs', 1500);
+  });
+}
+</script>
+{% endblock %}

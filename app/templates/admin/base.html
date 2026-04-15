@@ -154,6 +154,9 @@
     <a href="/admin/evaluation/" class="nav-item {% if request.url.path.startswith('/admin/evaluation') %}active{% endif %}">
       <i class="bi bi-clipboard-data"></i> Evaluation
     </a>
+    <a href="/admin/stats/games/table" class="nav-item {% if '/games/table' in request.url.path %}active{% endif %}">
+      <i class="bi bi-controller"></i> Dữ liệu chơi
+    </a>
   </nav>
   <div class="sidebar-footer">
     <div style="margin-bottom:8px">Q-learning · 7×7 · 4-win</div>

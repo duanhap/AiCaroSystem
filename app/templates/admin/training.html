@@ -247,7 +247,12 @@
             <div class="col-12">
               <label class="form-label">Game IDs (comma-separated)</label>
               <input type="text" class="form-control" id="of_game_ids" placeholder="1,2,3,4,5">
-              <div style="font-size:.75rem;color:var(--text-muted);margin-top:4px">ID các ván chơi muốn dùng để train</div>
+              <div style="font-size:.75rem;color:var(--text-muted);margin-top:4px">
+                ID các ván chơi muốn dùng để train ·
+                <a href="/admin/stats/games/table" target="_blank" style="color:var(--accent)">
+                  Xem & chọn dữ liệu →
+                </a>
+              </div>
             </div>
             <div class="col-12 mt-2">
               <button class="btn-accent" onclick="startOffline()">
