@@ -1,0 +1,204 @@
+{% extends "client/base.html" %}
+{% block title %}Chơi vs Bot – AI Caro{% endblock %}
+{% block head %}
+<style>
+  .game-wrap { display: flex; gap: 28px; align-items: flex-start; flex-wrap: wrap; }
+  .board-area { flex: 0 0 auto; }
+  .board {
+    display: grid; grid-template-columns: repeat(7, 52px);
+    gap: 4px; background: var(--surface2); padding: 12px; border-radius: 12px;
+    border: 1px solid var(--border);
+  }
+  .cell {
+    width: 52px; height: 52px; background: var(--surface); border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.4rem; cursor: pointer; transition: background .15s;
+    border: 1px solid var(--border);
+  }
+  .cell:hover:not(.taken) { background: var(--surface2); border-color: var(--accent); }
+  .cell.taken { cursor: default; }
+  .cell.X { color: var(--accent); }
+  .cell.O { color: var(--accent2); }
+  .cell.last-move { border-color: #ffc107 !important; }
+  .cell.win-cell { background: rgba(0,212,170,.15) !important; border-color: var(--accent2) !important; }
+
+  .info-panel { flex: 1; min-width: 220px; }
+  .status-box { background: var(--surface2); border-radius: 10px; padding: 16px; margin-bottom: 16px; text-align: center; }
+  .status-text { font-size: 1rem; font-weight: 600; }
+  .turn-indicator { font-size: .82rem; color: var(--text-muted); margin-top: 4px; }
+
+  .side-select { display: flex; gap: 8px; margin-bottom: 20px; }
+  .side-btn { flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--surface2); color: var(--text-muted); cursor: pointer; font-size: .9rem; transition: all .2s; }
+  .side-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(108,99,255,.1); }
+
+  .move-log { background: var(--surface2); border-radius: 8px; padding: 12px; max-height: 200px; overflow-y: auto; font-size: .8rem; font-family: monospace; color: var(--text-muted); }
+</style>
+{% endblock %}
+{% block content %}
+<div style="margin-bottom:20px;display:flex;align-items:center;gap:12px">
+  <a href="/game/" style="color:var(--text-muted);text-decoration:none;font-size:.85rem">← Trang chủ</a>
+  <span style="color:var(--border)">|</span>
+  <span style="font-size:.85rem;color:var(--text-muted)">AI: <span style="color:var(--accent2)">{{ ai_version }}</span></span>
+</div>
+
+<div class="game-wrap">
+  <!-- BOARD -->
+  <div class="board-area">
+    <div class="board" id="board">
+      {% for i in range(49) %}
+      <div class="cell" id="cell-{{ i }}" onclick="handleClick({{ i }})"></div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- INFO PANEL -->
+  <div class="info-panel">
+    <!-- Chọn bên trước khi bắt đầu -->
+    <div id="setupPanel">
+      <div style="font-size:.85rem;color:var(--text-muted);margin-bottom:10px">Chọn quân của bạn:</div>
+      <div class="side-select">
+        <button class="side-btn active" id="btnX" onclick="selectSide('X')">♟ X (đi trước)</button>
+        <button class="side-btn" id="btnO" onclick="selectSide('O')">♟ O (đi sau)</button>
+      </div>
+      <button class="btn btn-primary" style="width:100%" onclick="startGame()">▶ Bắt đầu ván mới</button>
+    </div>
+
+    <!-- Trạng thái ván đang chơi -->
+    <div id="gamePanel" style="display:none">
+      <div class="status-box">
+        <div class="status-text" id="statusText">Lượt của bạn</div>
+        <div class="turn-indicator" id="turnIndicator"></div>
+      </div>
+      <button class="btn btn-ghost" style="width:100%;margin-bottom:16px" onclick="resetGame()">
+        🔄 Ván mới
+      </button>
+      <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:6px">Lịch sử nước đi</div>
+      <div class="move-log" id="moveLog"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const BOARD_SIZE = 7;
+let gameId = null;
+let playerSide = 'X';
+let myTurn = true;
+let gameOver = false;
+let lastAiAction = null;
+
+function selectSide(side) {
+  playerSide = side;
+  document.getElementById('btnX').classList.toggle('active', side === 'X');
+  document.getElementById('btnO').classList.toggle('active', side === 'O');
+}
+
+async function startGame() {
+  const fd = new FormData();
+  fd.append('player_side', playerSide);
+  const res = await fetch('/game/pve/start', { method: 'POST', body: fd });
+  const data = await res.json();
+  gameId = data.game_id;
+  myTurn = (playerSide === 'X');
+  gameOver = false;
+  lastAiAction = data.ai_action;
+
+  document.getElementById('setupPanel').style.display = 'none';
+  document.getElementById('gamePanel').style.display = 'block';
+  renderBoard(data.board, data.ai_action);
+  updateStatus();
+  logMove(data.ai_action, playerSide === 'X' ? 'O' : 'X', true);
+}
+
+function renderBoard(board, highlightAction = null) {
+  for (let i = 0; i < 49; i++) {
+    const cell = document.getElementById(`cell-${i}`);
+    const val = board[i];
+    cell.textContent = val === 1 ? '✕' : val === 2 ? '○' : '';
+    cell.className = 'cell' + (val === 1 ? ' taken X' : val === 2 ? ' taken O' : '');
+    if (i === highlightAction) cell.classList.add('last-move');
+  }
+}
+
+async function handleClick(action) {
+  if (!gameId || !myTurn || gameOver) return;
+  const cell = document.getElementById(`cell-${action}`);
+  if (cell.classList.contains('taken')) return;
+
+  setLoading(true);
+  const fd = new FormData();
+  fd.append('game_id', gameId);
+  fd.append('action', action);
+  const res = await fetch('/game/pve/move', { method: 'POST', body: fd });
+  const data = await res.json();
+  setLoading(false);
+
+  if (data.error) { alert(data.error); return; }
+
+  const board = data.ai_move ? data.ai_move.board : data.player_move.board;
+  renderBoard(board, data.ai_move?.action ?? null);
+
+  // Highlight nước người chơi
+  document.getElementById(`cell-${action}`).classList.add('last-move');
+
+  logMove(action, playerSide, false);
+  if (data.ai_move) logMove(data.ai_move.action, playerSide === 'X' ? 'O' : 'X', true);
+
+  if (data.done) {
+    gameOver = true;
+    showResult(data.winner);
+  } else {
+    myTurn = true;
+    updateStatus();
+  }
+}
+
+function showResult(winner) {
+  let msg = '';
+  if (winner === 'draw') msg = '🤝 Hòa!';
+  else if ((winner === 'X' && playerSide === 'X') || (winner === 'O' && playerSide === 'O'))
+    msg = '🎉 Bạn thắng!';
+  else msg = '🤖 AI thắng!';
+  document.getElementById('statusText').textContent = msg;
+  document.getElementById('statusText').style.color =
+    winner === 'draw' ? '#ffc107' : msg.includes('Bạn') ? 'var(--accent2)' : '#e74c3c';
+  document.getElementById('turnIndicator').textContent = 'Ván kết thúc';
+}
+
+function updateStatus() {
+  document.getElementById('statusText').textContent = myTurn ? '⚡ Lượt của bạn' : '⏳ AI đang suy nghĩ...';
+  document.getElementById('statusText').style.color = myTurn ? 'var(--accent2)' : 'var(--text-muted)';
+  document.getElementById('turnIndicator').textContent = `Bạn: ${playerSide} · AI: ${playerSide === 'X' ? 'O' : 'X'}`;
+}
+
+function setLoading(loading) {
+  myTurn = !loading;
+  if (loading) document.getElementById('statusText').textContent = '⏳ AI đang suy nghĩ...';
+}
+
+function logMove(action, player, isAI) {
+  if (action === null || action === undefined) return;
+  const row = Math.floor(action / BOARD_SIZE) + 1;
+  const col = action % BOARD_SIZE + 1;
+  const log = document.getElementById('moveLog');
+  const line = document.createElement('div');
+  line.style.color = isAI ? 'var(--accent2)' : 'var(--text)';
+  line.textContent = `${isAI ? '🤖 AI' : '👤 Bạn'} [${player}] → (${row},${col})`;
+  log.appendChild(line);
+  log.scrollTop = log.scrollHeight;
+}
+
+function resetGame() {
+  gameId = null; gameOver = false; myTurn = true;
+  document.getElementById('setupPanel').style.display = 'block';
+  document.getElementById('gamePanel').style.display = 'none';
+  document.getElementById('moveLog').innerHTML = '';
+  for (let i = 0; i < 49; i++) {
+    const c = document.getElementById(`cell-${i}`);
+    c.textContent = ''; c.className = 'cell';
+  }
+}
+</script>
+{% endblock %}

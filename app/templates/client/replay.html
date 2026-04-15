@@ -1,0 +1,86 @@
+{% extends "client/base.html" %}
+{% block title %}Replay #{{ game.id }} – AI Caro{% endblock %}
+{% block head %}
+<style>
+  .board { display:grid;grid-template-columns:repeat(7,48px);gap:3px;background:var(--surface2);padding:10px;border-radius:10px;border:1px solid var(--border); }
+  .cell { width:48px;height:48px;background:var(--surface);border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;border:1px solid var(--border); }
+  .cell.X{color:var(--accent)}.cell.O{color:var(--accent2)}.cell.last{border-color:#ffc107}
+</style>
+{% endblock %}
+{% block content %}
+<div style="margin-bottom:16px">
+  <a href="/history/" style="color:var(--text-muted);text-decoration:none;font-size:.85rem">← Lịch sử</a>
+</div>
+
+<div style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap">
+  <div>
+    <div class="board" id="board">
+      {% for i in range(49) %}<div class="cell" id="cell-{{ i }}"></div>{% endfor %}
+    </div>
+    <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
+      <button onclick="prev()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 14px;cursor:pointer">◀</button>
+      <span id="stepInfo" style="font-size:.85rem;color:var(--text-muted)">Bước 0 / {{ steps|length }}</span>
+      <button onclick="next()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 14px;cursor:pointer">▶</button>
+      <button onclick="autoPlay()" id="autoBtn" style="background:var(--accent);border:none;color:#fff;border-radius:6px;padding:6px 14px;cursor:pointer">▶▶ Auto</button>
+    </div>
+  </div>
+
+  <div style="flex:1;min-width:200px">
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-body">
+        <div style="font-size:.8rem;color:var(--text-muted);margin-bottom:4px">Ván #{{ game.id }}</div>
+        <div style="font-size:.9rem">
+          Kết quả:
+          {% if game.winner == 'draw' %}<span style="color:#ffc107">Hòa</span>
+          {% elif game.winner %}<span style="color:var(--accent2)">{{ game.winner }} thắng</span>
+          {% else %}<span style="color:var(--text-muted)">Chưa xong</span>{% endif %}
+        </div>
+        <div style="font-size:.8rem;color:var(--text-muted);margin-top:4px">{{ steps|length }} nước đi</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const steps = {{ steps | tojson }};
+let cur = 0;
+let autoTimer = null;
+
+function render(stepIdx) {
+  // Reset board
+  for (let i = 0; i < 49; i++) {
+    const c = document.getElementById(`cell-${i}`);
+    c.textContent = ''; c.className = 'cell';
+  }
+  // Vẽ đến bước stepIdx
+  for (let i = 0; i <= stepIdx && i < steps.length; i++) {
+    const s = steps[i];
+    const state = s.state;
+    for (let j = 0; j < 49; j++) {
+      const c = document.getElementById(`cell-${j}`);
+      if (state[j] === 1) { c.textContent = '✕'; c.className = 'cell taken X'; }
+      else if (state[j] === 2) { c.textContent = '○'; c.className = 'cell taken O'; }
+    }
+    if (i === stepIdx) document.getElementById(`cell-${s.action}`)?.classList.add('last');
+  }
+  document.getElementById('stepInfo').textContent = `Bước ${stepIdx + 1} / ${steps.length}`;
+}
+
+function prev() { if (cur > 0) { cur--; render(cur); } }
+function next() { if (cur < steps.length - 1) { cur++; render(cur); } }
+
+function autoPlay() {
+  if (autoTimer) { clearInterval(autoTimer); autoTimer = null; document.getElementById('autoBtn').textContent = '▶▶ Auto'; return; }
+  cur = 0; render(cur);
+  document.getElementById('autoBtn').textContent = '⏹ Stop';
+  autoTimer = setInterval(() => {
+    if (cur >= steps.length - 1) { clearInterval(autoTimer); autoTimer = null; document.getElementById('autoBtn').textContent = '▶▶ Auto'; return; }
+    cur++; render(cur);
+  }, 600);
+}
+
+if (steps.length > 0) render(0);
+</script>
+{% endblock %}

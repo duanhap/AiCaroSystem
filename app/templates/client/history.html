@@ -1,0 +1,57 @@
+{% extends "client/base.html" %}
+{% block title %}Lịch sử – AI Caro{% endblock %}
+{% block content %}
+<h4 style="margin-bottom:20px">📋 Lịch sử ván đấu</h4>
+
+{% if games %}
+<div class="card">
+  <div class="card-body" style="padding:0">
+    <table style="width:100%;border-collapse:collapse">
+      <thead>
+        <tr style="background:var(--surface2)">
+          <th style="padding:12px 16px;text-align:left;font-size:.8rem;color:var(--text-muted);font-weight:600">ID</th>
+          <th style="padding:12px 16px;text-align:left;font-size:.8rem;color:var(--text-muted);font-weight:600">Chế độ</th>
+          <th style="padding:12px 16px;text-align:left;font-size:.8rem;color:var(--text-muted);font-weight:600">Kết quả</th>
+          <th style="padding:12px 16px;text-align:left;font-size:.8rem;color:var(--text-muted);font-weight:600">Ngày</th>
+          <th style="padding:12px 16px;text-align:left;font-size:.8rem;color:var(--text-muted);font-weight:600"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for g in games %}
+        <tr style="border-top:1px solid var(--border)">
+          <td style="padding:12px 16px;font-size:.85rem">#{{ g.id }}</td>
+          <td style="padding:12px 16px">
+            <span style="background:rgba(108,99,255,.15);color:var(--accent);font-size:.75rem;padding:3px 8px;border-radius:6px">
+              {{ 'vs Bot' if g.mode == 'pve' else 'vs Người' }}
+            </span>
+          </td>
+          <td style="padding:12px 16px;font-size:.85rem">
+            {% if g.winner == 'draw' %}
+              <span style="color:#ffc107">🤝 Hòa</span>
+            {% elif g.winner %}
+              <span style="color:var(--accent2)">{{ g.winner }} thắng</span>
+            {% else %}
+              <span style="color:var(--text-muted)">Đang chơi</span>
+            {% endif %}
+          </td>
+          <td style="padding:12px 16px;font-size:.8rem;color:var(--text-muted)">
+            {{ g.created_at.strftime('%d/%m/%Y %H:%M') if g.created_at else '–' }}
+          </td>
+          <td style="padding:12px 16px">
+            <a href="/history/{{ g.id }}" style="color:var(--accent);font-size:.82rem;text-decoration:none">
+              Xem lại →
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div style="text-align:center;padding:60px;color:var(--text-muted)">
+  <div style="font-size:3rem;opacity:.3">📋</div>
+  <div style="margin-top:12px">Chưa có ván nào. <a href="/game/pve" style="color:var(--accent)">Chơi ngay</a></div>
+</div>
+{% endif %}
+{% endblock %}

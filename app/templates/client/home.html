@@ -1,0 +1,48 @@
+{% extends "client/base.html" %}
+{% block title %}Trang chủ – AI Caro{% endblock %}
+{% block content %}
+<div style="text-align:center;padding:60px 0 40px">
+  <div style="font-size:4rem;margin-bottom:16px">♟</div>
+  <h1 style="font-size:2rem;font-weight:800;color:var(--accent)">AI Caro 7×7</h1>
+  <p style="color:var(--text-muted);margin-top:8px;font-size:.95rem">
+    Thách đấu AI học tăng cường · Q-learning
+    {% if ai_version %}<span style="color:var(--accent2)"> · {{ ai_version }}</span>{% endif %}
+  </p>
+</div>
+
+<div style="display:flex;gap:20px;justify-content:center;flex-wrap:wrap">
+  <a href="/game/pve" style="text-decoration:none">
+    <div class="card" style="width:260px;padding:28px;text-align:center;cursor:pointer;transition:border-color .2s"
+         onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+      <div style="font-size:2.5rem;margin-bottom:12px">🤖</div>
+      <div style="font-size:1.1rem;font-weight:700;margin-bottom:8px">Chơi vs Bot</div>
+      <div style="font-size:.85rem;color:var(--text-muted)">Thách đấu AI Q-learning đã được huấn luyện</div>
+      {% if ai_version %}
+      <div style="margin-top:12px;font-size:.75rem;background:rgba(0,212,170,.1);color:var(--accent2);padding:4px 10px;border-radius:20px;display:inline-block">
+        {{ ai_version }}
+      </div>
+      {% else %}
+      <div style="margin-top:12px;font-size:.75rem;color:var(--text-muted)">Chưa có AI được deploy</div>
+      {% endif %}
+    </div>
+  </a>
+
+  <div class="card" style="width:260px;padding:28px;text-align:center;opacity:.5">
+    <div style="font-size:2.5rem;margin-bottom:12px">👥</div>
+    <div style="font-size:1.1rem;font-weight:700;margin-bottom:8px">Chơi vs Bạn bè</div>
+    <div style="font-size:.85rem;color:var(--text-muted)">Online PvP · Sắp ra mắt</div>
+    <div style="margin-top:12px;font-size:.75rem;background:rgba(255,193,7,.1);color:#ffc107;padding:4px 10px;border-radius:20px;display:inline-block">
+      Coming soon
+    </div>
+  </div>
+
+  <a href="/history/" style="text-decoration:none">
+    <div class="card" style="width:260px;padding:28px;text-align:center;cursor:pointer;transition:border-color .2s"
+         onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+      <div style="font-size:2.5rem;margin-bottom:12px">📋</div>
+      <div style="font-size:1.1rem;font-weight:700;margin-bottom:8px">Lịch sử</div>
+      <div style="font-size:.85rem;color:var(--text-muted)">Xem lại các ván đã chơi và replay</div>
+    </div>
+  </a>
+</div>
+{% endblock %}
