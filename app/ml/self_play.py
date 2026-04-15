@@ -41,6 +41,9 @@ def run_self_play(
     logs = []
     final_result = {}
     prev_q_snapshot = {}
+    convergence_checks_passed = 0  # Cần liên tiếp N lần mới dừng
+    CONVERGENCE_STREAK = 3         # Phải hội tụ 3 lần liên tiếp mới dừng
+    MIN_EPISODES_BEFORE_CONVERGENCE = max(test_interval * 5, 1000)  # Không check sớm hơn 1000 ep
 
     for ep in range(1, episodes + 1):
         state = env.reset()
@@ -102,15 +105,19 @@ def run_self_play(
             current_q_snapshot = {k: dict(v) for k, v in agent.q_table.items()}
             avg_delta = None
             if prev_q_snapshot:
+                # Chỉ tính delta trên các state/action đã tồn tại ở CẢ HAI snapshot
+                # để tránh nhầm "ít delta" do Q-table đang còn nhỏ
+                common_states = set(current_q_snapshot.keys()) & set(prev_q_snapshot.keys())
                 deltas = [
                     abs(val - prev_q_snapshot[s][a])
-                    for s, actions in current_q_snapshot.items()
-                    if s in prev_q_snapshot
-                    for a, val in actions.items()
+                    for s in common_states
+                    for a, val in current_q_snapshot[s].items()
                     if a in prev_q_snapshot[s]
                 ]
-                avg_delta = sum(deltas) / len(deltas) if deltas else 0.0
-                log_entry["avg_q_delta"] = round(avg_delta, 6)
+                if deltas:
+                    avg_delta = sum(deltas) / len(deltas)
+                    log_entry["avg_q_delta"] = round(avg_delta, 6)
+                    log_entry["common_states"] = len(common_states)
             prev_q_snapshot = current_q_snapshot
 
             logs.append(log_entry)
@@ -125,10 +132,17 @@ def run_self_play(
                 break
 
             # Early stopping: Q hội tụ
-            if avg_delta is not None and avg_delta < convergence_threshold:
-                final_result["stopped_early"] = True
-                final_result["stop_reason"] = "q_converged"
-                break
+            # Điều kiện: ep đủ lớn + avg_delta nhỏ + liên tiếp CONVERGENCE_STREAK lần
+            if (avg_delta is not None
+                    and ep >= MIN_EPISODES_BEFORE_CONVERGENCE
+                    and avg_delta < convergence_threshold):
+                convergence_checks_passed += 1
+                if convergence_checks_passed >= CONVERGENCE_STREAK:
+                    final_result["stopped_early"] = True
+                    final_result["stop_reason"] = "q_converged"
+                    break
+            else:
+                convergence_checks_passed = 0  # Reset nếu không liên tiếp
 
     final_result.update({
         "episodes_trained": ep,
