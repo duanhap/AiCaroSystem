@@ -3,6 +3,7 @@
 Lưu training_logs vào DB sau mỗi test interval.
 """
 import copy
+import time
 from typing import Optional, Callable
 from sqlalchemy.orm import Session
 
@@ -62,11 +63,19 @@ def start_self_play(
     temp_cp_id = [None]
 
     def progress_handler(entry):
-        # Lần đầu tạo checkpoint tạm trong DB để gắn log
+        # Lần đầu tạo checkpoint tạm — dùng timestamp để tránh duplicate
         if temp_cp_id[0] is None:
+            tmp_version = f"{new_version}_tmp_{int(time.time())}"
+            # Xóa các _tmp cũ của cùng new_version nếu còn sót
+            from app.models.checkpoint import Checkpoint as CpModel
+            db.query(CpModel).filter(
+                CpModel.version.like(f"{new_version}_tmp%")
+            ).delete(synchronize_session=False)
+            db.commit()
+
             cp = checkpoint_repo.create(
                 db,
-                version=new_version + "_tmp",
+                version=tmp_version,
                 file_path="",
                 base_version=base_version,
                 opponent_version=opponent_version,
