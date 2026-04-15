@@ -43,6 +43,8 @@ def load_agent(db: Session, version: str) -> QAgent:
     cp = checkpoint_repo.get_by_version(db, version)
     if cp is None:
         raise ValueError(f"Không tìm thấy version {version}")
+    if not cp.file_path or not os.path.exists(cp.file_path):
+        raise ValueError(f"File Q-table của '{version}' không tồn tại (checkpoint tạm hoặc đã xóa)")
     agent = QAgent(epsilon=0.0)
     agent.load(cp.file_path)
     return agent
