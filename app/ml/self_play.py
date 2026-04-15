@@ -152,9 +152,19 @@ def run_self_play(
                 on_progress(log_entry)
 
             # Early stopping: win rate đạt target
-            if result_random["win_rate"] >= win_rate_target:
+            # Nếu có compare_agent → dùng win_rate_vs_version làm tiêu chí chính
+            # Nếu không → dùng win_rate_vs_random
+            if compare_agent and result_version is not None:
+                target_met = result_version["win_rate"] >= win_rate_target
+                stop_metric = f"vs_version={result_version['win_rate']:.1%}"
+            else:
+                target_met = result_random["win_rate"] >= win_rate_target
+                stop_metric = f"vs_random={result_random['win_rate']:.1%}"
+
+            if target_met:
                 final_result["stopped_early"] = True
                 final_result["stop_reason"] = "win_rate_target"
+                logger.info(f"[ep {ep}] Early stop: {stop_metric} >= {win_rate_target:.1%}")
                 break
 
             # Early stopping: Q hội tụ
