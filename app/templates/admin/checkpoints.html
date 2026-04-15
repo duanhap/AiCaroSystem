@@ -73,6 +73,14 @@
                   <i class="bi bi-rocket"></i> Deploy
                 </button>
               </form>
+              {% else %}
+              <form method="post" action="/admin/checkpoints/undeploy" class="m-0"
+                    onsubmit="return confirm('Bỏ deploy {{ cp.version }}? AI sẽ không có version nào chạy.')">
+                <input type="hidden" name="version" value="{{ cp.version }}">
+                <button class="btn-ghost" style="padding:5px 10px;font-size:.78rem;border-color:#ffc107;color:#ffc107">
+                  <i class="bi bi-stop-circle"></i> Undeploy
+                </button>
+              </form>
               {% endif %}
               <a href="/admin/stats/?cp={{ cp.id }}" class="btn-ghost" style="padding:5px 10px;font-size:.78rem;text-decoration:none">
                 <i class="bi bi-graph-up"></i>

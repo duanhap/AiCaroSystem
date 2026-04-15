@@ -32,6 +32,15 @@ def deploy(version: str = Form(...), db: Session = Depends(get_db)):
     return RedirectResponse("/admin/checkpoints/", status_code=303)
 
 
+@router.post("/undeploy")
+def undeploy(version: str = Form(...), db: Session = Depends(get_db)):
+    """Bỏ deploy version hiện tại (không deploy bản nào cả)"""
+    from app.models.checkpoint import Checkpoint
+    db.query(Checkpoint).filter(Checkpoint.version == version).update({"is_deployed": False})
+    db.commit()
+    return RedirectResponse("/admin/checkpoints/", status_code=303)
+
+
 @router.post("/delete")
 def delete(version: str = Form(...), db: Session = Depends(get_db)):
     delete_checkpoint(db, version)
