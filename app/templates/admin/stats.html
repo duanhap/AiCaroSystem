@@ -142,12 +142,15 @@ function loadCurve() {
           labels: data.labels,
           datasets: [
             { label: 'vs Random (%)', data: data.win_rate_vs_random.map(v => v ? +(v*100).toFixed(1) : null),
-              borderColor: '#6c63ff', backgroundColor: 'rgba(108,99,255,.1)', tension: 0.4, fill: true, pointRadius: 3 },
+              borderColor: '#6c63ff', backgroundColor: 'rgba(108,99,255,.1)', tension: 0.4, fill: true,
+              pointRadius: 0, borderWidth: 2 },
             { label: 'vs Version (%)', data: data.win_rate_vs_version.map(v => v ? +(v*100).toFixed(1) : null),
-              borderColor: '#00d4aa', backgroundColor: 'rgba(0,212,170,.1)', tension: 0.4, fill: true, pointRadius: 3 },
+              borderColor: '#00d4aa', backgroundColor: 'rgba(0,212,170,.1)', tension: 0.4, fill: true,
+              pointRadius: 0, borderWidth: 2 },
           ]
         },
         options: {
+          spanGaps: true,
           plugins: { legend: { labels: { color: '#e2e8f0', font: { size: 12 } } } },
           scales: {
             y: { min: 0, max: 100, grid: { color: '#2e3250' }, ticks: { color: '#8892b0' },

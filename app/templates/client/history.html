@@ -17,7 +17,7 @@
         </tr>
       </thead>
       <tbody>
-        {% for g in games %}
+        {% for g, result in games_with_result %}
         <tr style="border-top:1px solid var(--border)">
           <td style="padding:12px 16px;font-size:.85rem">#{{ g.id }}</td>
           <td style="padding:12px 16px">
@@ -26,12 +26,14 @@
             </span>
           </td>
           <td style="padding:12px 16px;font-size:.85rem">
-            {% if g.winner == 'draw' %}
-              <span style="color:#ffc107">🤝 Hòa</span>
-            {% elif g.winner %}
-              <span style="color:var(--accent2)">{{ g.winner }} thắng</span>
+            {% if result == 'win' %}
+              <span style="background:rgba(0,200,100,.15);color:#00c864;font-size:.78rem;padding:3px 10px;border-radius:6px;font-weight:600">🏆 Thắng</span>
+            {% elif result == 'loss' %}
+              <span style="background:rgba(255,80,80,.15);color:#ff5050;font-size:.78rem;padding:3px 10px;border-radius:6px;font-weight:600">🗿 Thua</span>
+            {% elif result == 'draw' %}
+              <span style="background:rgba(255,193,7,.15);color:#ffc107;font-size:.78rem;padding:3px 10px;border-radius:6px;font-weight:600">🤝 Hòa</span>
             {% else %}
-              <span style="color:var(--text-muted)">Đang chơi</span>
+              <span style="color:var(--text-muted);font-size:.8rem">⏳ Đang chơi</span>
             {% endif %}
           </td>
           <td style="padding:12px 16px;font-size:.8rem;color:var(--text-muted)">

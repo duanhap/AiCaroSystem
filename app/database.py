@@ -6,7 +6,8 @@ from app.config import settings
 engine = create_engine(
     settings.DATABASE_URL,
     pool_pre_ping=True,
-    pool_recycle=3600,
+    pool_recycle=1800,   # recycle mỗi 30 phút
+    pool_timeout=60,
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

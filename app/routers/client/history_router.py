@@ -22,8 +22,27 @@ def history_page(request: Request, db: Session = Depends(get_db)):
     if not user:
         return RedirectResponse("/auth/login", status_code=302)
     games = game_repo.get_user_games(db, user["id"])
+
+    # Tính kết quả từ góc nhìn user
+    def user_result(g):
+        if not g.winner or g.status != "finished":
+            return None
+        if g.winner == "draw":
+            return "draw"
+        # Xác định user đóng vai gì
+        if g.player_x_id == user["id"]:
+            user_side = "X"
+        elif g.player_o_id == user["id"]:
+            user_side = "O"
+        else:
+            return None
+        return "win" if g.winner == user_side else "loss"
+
+    games_with_result = [(g, user_result(g)) for g in games]
+
     return templates.TemplateResponse("client/history.html", {
-        "request": request, "user": user, "games": games
+        "request": request, "user": user,
+        "games": games, "games_with_result": games_with_result
     })
 
 

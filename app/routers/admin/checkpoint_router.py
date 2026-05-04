@@ -29,15 +29,18 @@ def checkpoints_page(request: Request, db: Session = Depends(get_db)):
 @router.post("/deploy")
 def deploy(version: str = Form(...), db: Session = Depends(get_db)):
     deploy_checkpoint(db, version)
+    from app.services.ai_service import invalidate_cache
+    invalidate_cache()
     return RedirectResponse("/admin/checkpoints/", status_code=303)
 
 
 @router.post("/undeploy")
 def undeploy(version: str = Form(...), db: Session = Depends(get_db)):
-    """Bỏ deploy version hiện tại (không deploy bản nào cả)"""
     from app.models.checkpoint import Checkpoint
     db.query(Checkpoint).filter(Checkpoint.version == version).update({"is_deployed": False})
     db.commit()
+    from app.services.ai_service import invalidate_cache
+    invalidate_cache()
     return RedirectResponse("/admin/checkpoints/", status_code=303)
 
 

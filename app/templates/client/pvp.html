@@ -1,0 +1,344 @@
+{% extends "client/base.html" %}
+{% block title %}PvP – AI Caro{% endblock %}
+{% block head %}
+<style>
+  .game-wrap { display:flex; gap:28px; align-items:flex-start; flex-wrap:wrap; }
+  .board {
+    display:grid; grid-template-columns:repeat(7,52px);
+    gap:4px; background:var(--surface2); padding:12px; border-radius:12px;
+    border:1px solid var(--border);
+  }
+  .cell {
+    width:52px; height:52px; background:var(--surface); border-radius:6px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:1.4rem; cursor:pointer; transition:background .15s;
+    border:1px solid var(--border);
+  }
+  .cell:hover:not(.taken) { background:var(--surface2); border-color:var(--accent); }
+  .cell.taken { cursor:default; }
+  .cell.X { color:var(--accent); }
+  .cell.O { color:var(--accent2); }
+  .cell.last-move { border-color:#ffc107 !important; }
+  .info-panel { flex:1; min-width:240px; }
+  .status-box { background:var(--surface2); border-radius:10px; padding:16px; margin-bottom:16px; text-align:center; }
+  .player-card { background:var(--surface2); border-radius:8px; padding:12px 16px; display:flex; align-items:center; gap:10px; margin-bottom:8px; border:1px solid var(--border); }
+  .player-card.active { border-color:var(--accent2); background:rgba(0,212,170,.08); }
+  .room-setup { max-width:420px; margin:60px auto; text-align:center; }
+  .result-actions { display:flex; gap:10px; margin-top:16px; flex-wrap:wrap; }
+</style>
+{% endblock %}
+{% block content %}
+
+<!-- SETUP PANEL -->
+<div id="setupPanel" class="room-setup">
+  <div style="font-size:3rem;margin-bottom:16px">👥</div>
+  <h2 style="font-weight:700;margin-bottom:8px">Chơi vs Bạn bè</h2>
+  <p style="color:var(--text-muted);margin-bottom:28px;font-size:.9rem">Tạo phòng hoặc nhập mã để tham gia</p>
+  <div style="display:flex;flex-direction:column;gap:12px">
+    <button class="btn btn-primary" style="width:100%;padding:14px;font-size:1rem" onclick="createRoom()">
+      ✨ Tạo phòng mới
+    </button>
+    <div style="color:var(--text-muted);font-size:.85rem">— hoặc —</div>
+    <div style="display:flex;gap:8px">
+      <input type="text" id="roomInput" class="form-control" placeholder="Nhập mã phòng (6 số)"
+             maxlength="6" style="text-align:center;font-size:1.1rem;letter-spacing:4px;font-weight:700">
+      <button class="btn btn-secondary" style="white-space:nowrap" onclick="joinRoom()">Vào phòng</button>
+    </div>
+  </div>
+</div>
+
+<!-- WAITING PANEL -->
+<div id="waitingPanel" style="display:none;max-width:420px;margin:60px auto;text-align:center">
+  <div style="font-size:3rem;margin-bottom:16px">⏳</div>
+  <h3 style="font-weight:700;margin-bottom:8px">Chờ người chơi thứ 2</h3>
+  <div style="background:var(--surface2);border-radius:12px;padding:20px;margin:20px 0">
+    <div style="font-size:.85rem;color:var(--text-muted);margin-bottom:8px">Mã phòng của bạn</div>
+    <div id="roomCodeDisplay" style="font-size:2.5rem;font-weight:800;color:var(--accent);letter-spacing:8px"></div>
+    <button onclick="copyRoomCode()" style="margin-top:12px;background:transparent;border:1px solid var(--border);color:var(--text-muted);border-radius:6px;padding:6px 16px;font-size:.82rem;cursor:pointer">
+      📋 Copy mã
+    </button>
+  </div>
+  <p style="color:var(--text-muted);font-size:.85rem">Chia sẻ mã này cho bạn bè để họ vào phòng</p>
+</div>
+
+<!-- GAME PANEL -->
+<div id="gamePanel" style="display:none">
+  <div style="margin-bottom:16px;display:flex;align-items:center;gap:12px">
+    <a href="/game/" style="color:var(--text-muted);text-decoration:none;font-size:.85rem">← Trang chủ</a>
+    <span style="color:var(--border)">|</span>
+    <span style="font-size:.85rem;color:var(--text-muted)">Phòng: <span id="roomCodeGame" style="color:var(--accent);font-weight:700"></span></span>
+  </div>
+  <div class="game-wrap">
+    <div>
+      <div class="board" id="board">
+        {% for i in range(49) %}
+        <div class="cell" id="cell-{{ i }}" onclick="handleClick({{ i }})"></div>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="info-panel">
+      <div class="status-box">
+        <div style="font-size:1rem;font-weight:600" id="statusText">Đang chờ...</div>
+        <div style="font-size:.82rem;color:var(--text-muted);margin-top:4px" id="turnIndicator"></div>
+        <div style="font-size:1.2rem;font-weight:700;margin-top:6px" id="timerDisplay"></div>
+      </div>
+      <div id="playerCards"></div>
+      <!-- Nút sau khi kết thúc ván -->
+      <div id="resultActions" class="result-actions" style="display:none">
+        <button class="btn btn-primary" onclick="playAgain()" style="flex:1">🔄 Chơi tiếp</button>
+        <a href="/game/" class="btn btn-secondary" style="flex:1;text-align:center;text-decoration:none">🏠 Trang chủ</a>
+      </div>
+      <div style="font-size:.75rem;color:var(--text-muted);margin:12px 0 6px">Lịch sử nước đi</div>
+      <div style="background:var(--surface2);border-radius:8px;padding:12px;max-height:200px;overflow-y:auto;font-size:.8rem;font-family:monospace;color:var(--text-muted)" id="moveLog"></div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const BOARD_SIZE = 7;
+const currentUser = "{{ user.username }}";
+let ws = null;
+let mySide = null;
+let myTurn = false;
+let gameOver = false;
+let currentRoomCode = null;
+let allPlayers = [];
+
+async function createRoom() {
+  const res = await fetch('/game/pvp/create', { method: 'POST' });
+  const data = await res.json();
+  if (data.error) { alert(data.error); return; }
+  currentRoomCode = data.room_code;
+  document.getElementById('roomCodeDisplay').textContent = data.room_code;
+  document.getElementById('setupPanel').style.display = 'none';
+  document.getElementById('waitingPanel').style.display = 'block';
+  connectWS(data.room_code);
+}
+
+function joinRoom() {
+  const code = document.getElementById('roomInput').value.trim();
+  if (code.length !== 6) { alert('Mã phòng phải có 6 số'); return; }
+  currentRoomCode = code;
+  document.getElementById('setupPanel').style.display = 'none';
+  document.getElementById('waitingPanel').style.display = 'block';
+  document.getElementById('waitingPanel').innerHTML =
+    '<div style="font-size:3rem;margin-bottom:16px">🔗</div>' +
+    '<h3 style="font-weight:700;margin-bottom:8px">Đang vào phòng ' + code + '...</h3>';
+  connectWS(code);
+}
+
+function copyRoomCode() {
+  navigator.clipboard.writeText(currentRoomCode);
+  event.target.textContent = '✓ Đã copy!';
+  setTimeout(function() { event.target.textContent = '📋 Copy mã'; }, 1500);
+}
+
+function connectWS(roomCode) {
+  var proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  var url = proto + '://' + location.host + '/game/pvp/ws/' + roomCode;
+  console.log('[PvP] Connecting to', url);
+  ws = new WebSocket(url);
+  ws.onopen = function() { console.log('[PvP] Connected'); };
+  ws.onmessage = function(e) { handleMessage(JSON.parse(e.data)); };
+  ws.onerror = function(e) { console.error('[PvP] Error', e); };
+  ws.onclose = function(e) {
+    console.log('[PvP] Closed', e.code, e.reason);
+    if (!gameOver) {
+      var el = document.getElementById('statusText');
+      if (el) el.textContent = '⚠️ Mất kết nối';
+    }
+  };
+}
+
+function handleMessage(msg) {
+  console.log('[PvP]', msg.type, msg);
+  if (msg.type === 'joined') {
+    mySide = msg.side;
+    var el = document.getElementById('roomCodeGame');
+    if (el) el.textContent = currentRoomCode;
+
+  } else if (msg.type === 'waiting') {
+    // giữ nguyên waiting panel
+
+  } else if (msg.type === 'error') {
+    alert(msg.message);
+
+  } else if (msg.type === 'start') {
+    document.getElementById('waitingPanel').style.display = 'none';
+    document.getElementById('setupPanel').style.display = 'none';
+    document.getElementById('gamePanel').style.display = 'block';
+    mySide = msg.side;
+    allPlayers = msg.players;
+    document.getElementById('roomCodeGame').textContent = currentRoomCode;
+    gameOver = false;
+    document.getElementById('moveLog').innerHTML = '';
+    document.getElementById('resultActions').style.display = 'none';
+    renderBoard(msg.board);
+    renderPlayerCards(msg.players, msg.current_turn);
+    myTurn = (msg.current_turn === currentUser);
+    updateStatus(msg.current_turn);
+    startTimer(10);
+
+  } else if (msg.type === 'move') {
+    clearTimer();
+    renderBoard(msg.board, msg.action);
+    logMove(msg.action, msg.side, msg.side !== mySide);
+    if (msg.done) {
+      gameOver = true;
+      showResult(msg.winner);
+      document.getElementById('resultActions').style.display = 'flex';
+    } else {
+      myTurn = (msg.current_turn === currentUser);
+      updateStatus(msg.current_turn);
+      renderPlayerCards(allPlayers, msg.current_turn);
+      startTimer(10);
+    }
+
+  } else if (msg.type === 'timeout') {
+    clearTimer();
+    gameOver = true;
+    var isLoser = msg.loser === currentUser;
+    document.getElementById('statusText').textContent = isLoser ? '⏰ Hết giờ! Bạn thua!' : ('⏰ ' + msg.loser + ' hết giờ! Bạn thắng!');
+    document.getElementById('statusText').style.color = isLoser ? '#e74c3c' : 'var(--accent2)';
+    document.getElementById('turnIndicator').textContent = 'Ván kết thúc';
+    document.getElementById('resultActions').style.display = 'flex';
+
+  } else if (msg.type === 'play_again_request') {
+    // Đối thủ muốn chơi lại
+    document.getElementById('statusText').textContent = msg.from + ' muốn chơi lại!';
+    document.getElementById('resultActions').style.display = 'flex';
+
+  } else if (msg.type === 'waiting_play_again') {
+    document.getElementById('statusText').textContent = msg.message;
+
+  } else if (msg.type === 'opponent_left') {
+    clearTimer();
+    if (!gameOver) {
+      // Đang chơi mà đối thủ thoát → mình thắng, redirect về trang chủ sau 3s
+      document.getElementById('statusText').textContent = '🏆 ' + msg.message + ' Bạn thắng!';
+      document.getElementById('statusText').style.color = 'var(--accent2)';
+      document.getElementById('turnIndicator').textContent = 'Chuyển về trang chủ sau 3 giây...';
+      gameOver = true;
+      setTimeout(function() { window.location.href = '/game/'; }, 3000);
+    } else {
+      // Ván đã xong, đối thủ thoát → mình cũng thoát
+      window.location.href = '/game/';
+    }
+  } else if (msg.type === 'play_again') {
+    // Server báo chơi lại → reset board
+    gameOver = false;
+    mySide = msg.side;
+    allPlayers = msg.players;
+    document.getElementById('moveLog').innerHTML = '';
+    document.getElementById('resultActions').style.display = 'none';
+    renderBoard(msg.board);
+    renderPlayerCards(msg.players, msg.current_turn);
+    myTurn = (msg.current_turn === currentUser);
+    updateStatus(msg.current_turn);
+    startTimer(10);
+  }
+}
+
+function handleClick(action) {
+  if (!ws || !myTurn || gameOver) return;
+  var cell = document.getElementById('cell-' + action);
+  if (cell.classList.contains('taken')) return;
+  ws.send(JSON.stringify({ type: 'move', action: action }));
+}
+
+function playAgain() {
+  if (!ws) return;
+  ws.send(JSON.stringify({ type: 'play_again' }));
+  document.getElementById('resultActions').style.display = 'none';
+  document.getElementById('statusText').textContent = '⏳ Chờ đối thủ đồng ý...';
+}
+
+function renderBoard(board, highlight) {
+  var symbols = { 0: '', 1: '✕', 2: '○' };
+  for (var i = 0; i < 49; i++) {
+    var cell = document.getElementById('cell-' + i);
+    var v = board[i];
+    cell.textContent = symbols[v] || '';
+    cell.className = 'cell' + (v === 1 ? ' taken X' : v === 2 ? ' taken O' : '');
+    if (i === highlight) cell.classList.add('last-move');
+  }
+}
+
+function renderPlayerCards(players, currentTurn) {
+  if (!players || players.length === 0) return;
+  var sides = [mySide === 'X' ? 'X' : 'O', mySide === 'X' ? 'O' : 'X'];
+  // Sắp xếp: mình trước, đối thủ sau
+  var ordered = currentUser === players[0] ? players : [players[1], players[0]];
+  var container = document.getElementById('playerCards');
+  container.innerHTML = ordered.map(function(name, i) {
+    var side = name === currentUser ? mySide : (mySide === 'X' ? 'O' : 'X');
+    var isActive = name === currentTurn;
+    return '<div class="player-card ' + (isActive ? 'active' : '') + '">' +
+      '<span style="font-size:1.2rem">' + (side === 'X' ? '✕' : '○') + '</span>' +
+      '<div><div style="font-weight:600;font-size:.9rem">' + name + (name === currentUser ? ' (Bạn)' : '') + '</div>' +
+      '<div style="font-size:.75rem;color:var(--text-muted)">' + side + '</div></div>' +
+      (isActive ? '<span style="margin-left:auto;color:var(--accent2);font-size:.75rem">● Đang đánh</span>' : '') +
+      '</div>';
+  }).join('');
+}
+
+function updateStatus(currentTurn) {
+  var isMyTurn = currentTurn === currentUser;
+  document.getElementById('statusText').textContent = isMyTurn ? '⚡ Lượt của bạn!' : ('⏳ Lượt của ' + currentTurn);
+  document.getElementById('statusText').style.color = isMyTurn ? 'var(--accent2)' : 'var(--text-muted)';
+  document.getElementById('turnIndicator').textContent = 'Bạn: ' + mySide;
+  myTurn = isMyTurn;
+}
+
+function showResult(winner) {
+  var msg = '';
+  if (winner === 'draw') msg = '🤝 Hòa!';
+  else if ((winner === 'X' && mySide === 'X') || (winner === 'O' && mySide === 'O')) msg = '🎉 Bạn thắng!';
+  else msg = '😢 Bạn thua!';
+  document.getElementById('statusText').textContent = msg;
+  document.getElementById('statusText').style.color = winner === 'draw' ? '#ffc107' : (msg.indexOf('thắng') >= 0 ? 'var(--accent2)' : '#e74c3c');
+  document.getElementById('turnIndicator').textContent = 'Ván kết thúc';
+}
+
+var _timerInterval = null;
+var _timerSec = 10;
+
+function startTimer(sec) {
+  clearTimer();
+  _timerSec = sec;
+  _updateTimerDisplay();
+  _timerInterval = setInterval(function() {
+    _timerSec--;
+    _updateTimerDisplay();
+    if (_timerSec <= 0) clearTimer();
+  }, 1000);
+}
+
+function clearTimer() {
+  if (_timerInterval) { clearInterval(_timerInterval); _timerInterval = null; }
+  var el = document.getElementById('timerDisplay');
+  if (el) el.textContent = '';
+}
+
+function _updateTimerDisplay() {
+  var el = document.getElementById('timerDisplay');
+  if (!el) return;
+  el.textContent = '⏱ ' + _timerSec + 's';
+  el.style.color = _timerSec <= 3 ? '#e74c3c' : (_timerSec <= 5 ? '#ffc107' : 'var(--text-muted)');
+}
+
+function logMove(action, side, isOpponent) {
+  var r = Math.floor(action / BOARD_SIZE) + 1;
+  var c = action % BOARD_SIZE + 1;
+  var log = document.getElementById('moveLog');
+  var line = document.createElement('div');
+  line.style.color = isOpponent ? 'var(--accent2)' : 'var(--text)';
+  line.textContent = (isOpponent ? '👤 Đối thủ' : '👤 Bạn') + ' [' + side + '] → (' + r + ',' + c + ')';
+  log.appendChild(line);
+  log.scrollTop = log.scrollHeight;
+}
+</script>
+{% endblock %}

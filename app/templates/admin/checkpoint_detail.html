@@ -77,8 +77,10 @@
     <!-- Q-VALUE DISTRIBUTION CHART -->
     <div class="card mt-4">
       <div class="card-header"><i class="bi bi-pie-chart me-2"></i>Phân phối Q-values</div>
-      <div class="card-body">
-        <canvas id="distChart" height="80"></canvas>
+      <div class="card-body" style="display:flex;justify-content:center">
+        <div style="width:220px;height:220px">
+          <canvas id="distChart"></canvas>
+        </div>
         <div id="noDist" style="text-align:center;padding:20px;color:var(--text-muted);display:none">
           Chưa có dữ liệu
         </div>
@@ -193,6 +195,8 @@ function renderQtable(stats) {
         }]
       },
       options: {
+        responsive: true,
+        maintainAspectRatio: true,
         plugins: { legend: { labels: { color: '#e2e8f0', font: { size: 11 } } } },
         cutout: '65%',
       }
@@ -214,14 +218,18 @@ function renderCurve(curve) {
       labels: curve.labels,
       datasets: [
         { label: 'vs Random (%)', data: curve.win_rate_vs_random.map(v => v ? +(v*100).toFixed(1) : null),
-          borderColor: '#6c63ff', backgroundColor: 'rgba(108,99,255,.1)', tension: 0.4, fill: true, pointRadius: 3 },
+          borderColor: '#6c63ff', backgroundColor: 'rgba(108,99,255,.1)', tension: 0.4, fill: true,
+          pointRadius: 0, borderWidth: 2 },
         { label: 'vs Version (%)', data: curve.win_rate_vs_version.map(v => v ? +(v*100).toFixed(1) : null),
-          borderColor: '#00d4aa', backgroundColor: 'rgba(0,212,170,.1)', tension: 0.4, fill: true, pointRadius: 3 },
+          borderColor: '#00d4aa', backgroundColor: 'rgba(0,212,170,.1)', tension: 0.4, fill: true,
+          pointRadius: 0, borderWidth: 2 },
         { label: 'Epsilon', data: curve.epsilon.map(v => v ? +(v*100).toFixed(1) : null),
-          borderColor: '#ffc107', borderDash: [4,4], tension: 0.4, fill: false, pointRadius: 2, yAxisID: 'y' },
+          borderColor: '#ffc107', borderDash: [4,4], tension: 0.4, fill: false,
+          pointRadius: 0, borderWidth: 1.5, yAxisID: 'y' },
       ]
     },
     options: {
+      spanGaps: true,
       plugins: { legend: { labels: { color: '#e2e8f0', font: { size: 11 } } } },
       scales: {
         y: { min: 0, max: 100, grid: { color: '#2e3250' }, ticks: { color: '#8892b0' },

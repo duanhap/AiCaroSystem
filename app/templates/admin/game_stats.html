@@ -91,8 +91,9 @@
       <button onclick="copyIds()" class="btn-accent" style="white-space:nowrap">
         <i class="bi bi-clipboard me-1"></i>Copy IDs
       </button>
-      <a id="goTrainBtn" href="/admin/training/" class="btn-teal" style="text-decoration:none;white-space:nowrap;display:none">
-        <i class="bi bi-cpu me-1"></i>Đến Training
+      <a id="goTrainBtn" href="/admin/training/" class="btn-teal" style="text-decoration:none;white-space:nowrap;display:none"
+         onclick="goToTrainWithIds(event)">
+        <i class="bi bi-cpu me-1"></i>Train với dữ liệu này
       </a>
     </div>
   </div>
@@ -135,6 +136,15 @@ function copyIds() {
     btn.textContent = '✓ Đã copy!';
     setTimeout(() => btn.innerHTML = '<i class="bi bi-clipboard me-1"></i>Copy IDs', 1500);
   });
+}
+
+function goToTrainWithIds(e) {
+  e.preventDefault();
+  const ids = document.getElementById('selectedIds').value;
+  if (!ids) return;
+  // Lưu vào sessionStorage để trang Training đọc
+  sessionStorage.setItem('offline_game_ids', ids);
+  window.location.href = '/admin/training/?tab=offline';
 }
 </script>
 {% endblock %}

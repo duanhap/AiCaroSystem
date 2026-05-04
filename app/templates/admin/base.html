@@ -55,8 +55,8 @@
 
     /* CARDS */
     .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
-    .card-header { background: var(--surface2); border-bottom: 1px solid var(--border); padding: 14px 20px; font-weight: 600; font-size: 0.9rem; }
-    .card-body { padding: 20px; }
+    .card-header { background: var(--surface2); border-bottom: 1px solid var(--border); padding: 14px 20px; font-weight: 600; font-size: 0.9rem; color: var(--text) !important; }
+    .card-body { padding: 20px; color: var(--text); }
 
     /* STAT CARDS */
     .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
@@ -102,11 +102,15 @@
     .log-box .log-line.good { color: var(--accent2); }
 
     /* TABLE */
-    .table { color: var(--text); }
+    .table { color: var(--text); --bs-table-bg: transparent; --bs-table-striped-bg: transparent; --bs-table-hover-bg: var(--surface2); --bs-table-border-color: var(--border); }
     .table thead th { background: var(--surface2); border-color: var(--border); font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; padding: 12px 16px; }
-    .table tbody td { border-color: var(--border); padding: 12px 16px; font-size: 0.88rem; vertical-align: middle; }
-    .table tbody tr:hover td { background: var(--surface2); }
-    .table tbody tr.deployed td { background: rgba(0,212,170,.05); }
+    .table tbody td { border-color: var(--border); padding: 12px 16px; font-size: 0.88rem; vertical-align: middle; background: transparent; color: var(--text) !important; }
+    .table tbody tr { background: transparent; }
+    .table tbody tr:hover td { background: var(--surface2) !important; }
+    .table tbody tr.deployed td { background: rgba(0,212,170,.05) !important; }
+    .table-striped > tbody > tr:nth-of-type(odd) > * { background: transparent; color: var(--text) !important; }
+    /* Override Bootstrap table color variables */
+    .table { --bs-table-color: var(--text); --bs-table-striped-color: var(--text); --bs-table-hover-color: var(--text); }
 
     /* BADGES */
     .badge-mode { background: rgba(108,99,255,.2); color: var(--accent); font-size: 0.75rem; padding: 3px 8px; border-radius: 6px; font-weight: 500; }

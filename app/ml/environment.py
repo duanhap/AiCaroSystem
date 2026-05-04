@@ -6,12 +6,13 @@ EMPTY, X, O = 0, 1, 2
 
 # Intermediate rewards
 REWARD_WIN        =  1.0    # thắng
-REWARD_LOSE       = -1.0    # thua (dùng khi cập nhật cho bên thua)
+REWARD_LOSE       = -1.0    # thua
 REWARD_DRAW       =  0.0    # hòa
-REWARD_3_IN_ROW   =  0.3    # tạo được 3 quân liền (tấn công)
-REWARD_BLOCK_3    =  0.2    # chặn đối thủ 3 quân liền (phòng thủ)
-REWARD_2_IN_ROW   =  0.05   # tạo được 2 quân liền
-REWARD_BLOCK_WIN  =  0.5    # chặn nước thắng của đối thủ (4 quân)
+REWARD_3_IN_ROW   =  0.4    # tạo được 3 quân liền (tấn công)
+REWARD_BLOCK_3    =  0.5    # chặn đối thủ 3 quân liền (phòng thủ > tấn công)
+REWARD_2_IN_ROW   =  0.1    # tạo được 2 quân liền
+REWARD_BLOCK_WIN  =  0.95   # chặn nước thắng của đối thủ (gần = thắng)
+REWARD_STEP       = -0.01   # phạt nhẹ mỗi nước đi để tránh đánh lung tung
 
 
 class CaroEnv:
@@ -69,6 +70,45 @@ class CaroEnv:
             max_count = max(max_count, count)
         return max_count
 
+    def _has_open_ends(self, row, col, player, chain_length):
+        """Kiểm tra xem chuỗi quân có ít nhất 1 đầu mở không"""
+        directions = [(0,1),(1,0),(1,1),(1,-1)]
+        
+        for dr, dc in directions:
+            # Đếm chuỗi theo hướng này
+            count = 1
+            left_end = None
+            right_end = None
+            
+            # Đếm về bên trái
+            r, c = row - dr, col - dc
+            while 0 <= r < BOARD_SIZE and 0 <= c < BOARD_SIZE and self.board[r][c] == player:
+                count += 1
+                r -= dr
+                c -= dc
+            left_end = (r, c) if 0 <= r < BOARD_SIZE and 0 <= c < BOARD_SIZE else None
+            
+            # Đếm về bên phải
+            r, c = row + dr, col + dc
+            while 0 <= r < BOARD_SIZE and 0 <= c < BOARD_SIZE and self.board[r][c] == player:
+                count += 1
+                r += dr
+                c += dc
+            right_end = (r, c) if 0 <= r < BOARD_SIZE and 0 <= c < BOARD_SIZE else None
+            
+            # Nếu chuỗi này đủ dài và có ít nhất 1 đầu mở
+            if count >= chain_length:
+                open_ends = 0
+                if left_end and self.board[left_end[0]][left_end[1]] == EMPTY:
+                    open_ends += 1
+                if right_end and self.board[right_end[0]][right_end[1]] == EMPTY:
+                    open_ends += 1
+                
+                if open_ends > 0:
+                    return True
+        
+        return False
+
     def _opponent_max_threat(self):
         """Tìm chuỗi dài nhất của đối thủ trên toàn bàn (trước khi mình đánh)"""
         opponent = O if self.current_player == X else X
@@ -101,46 +141,44 @@ class CaroEnv:
         if not self.get_valid_actions():
             return REWARD_DRAW, True
 
-        # --- Intermediate rewards ---
-        my_len = self._count_consecutive(row, col, player)
-
-        # Tính threat của đối thủ SAU khi mình đánh
-        # (nếu mình vừa chặn được chuỗi dài của đối thủ)
-        opponent = O if player == X else X
-        opp_max = 0
-        for r in range(BOARD_SIZE):
-            for c in range(BOARD_SIZE):
-                if self.board[r][c] == opponent:
-                    opp_max = max(opp_max, self._count_consecutive(r, c, opponent))
-
+        # --- Improved Intermediate Rewards ---
         reward = 0.0
-
-        # Thưởng tấn công
-        if my_len == 3:
-            reward += REWARD_3_IN_ROW
+        opponent = O if player == X else X
+        
+        # 1. Offensive rewards (tấn công)
+        my_len = self._count_consecutive(row, col, player)
+        if my_len >= 3:
+            # Kiểm tra xem chuỗi có open ends không
+            if self._has_open_ends(row, col, player, my_len):
+                reward += REWARD_3_IN_ROW  # +0.3
         elif my_len == 2:
-            reward += REWARD_2_IN_ROW
+            if self._has_open_ends(row, col, player, my_len):
+                reward += REWARD_2_IN_ROW  # +0.05
 
-        # Thưởng phòng thủ: nếu trước khi đánh đối thủ có 3 quân liền
-        # mà sau khi đánh chuỗi đó bị giảm → mình đã chặn
-        # (đơn giản: nếu opp_max < WIN_LENGTH-1 thì thưởng block)
-        # Cách đơn giản hơn: check xem ô vừa đánh có nằm giữa chuỗi đối thủ không
-        # → dùng heuristic: nếu opp_max <= 2 và trước đó có thể là 3 → thưởng block
-        if opp_max < WIN_LENGTH - 1:
-            # Kiểm tra xem ô này có "cắt" chuỗi đối thủ không
-            # bằng cách thử bỏ quân mình ra và đếm lại
-            self.board[row][col] = EMPTY
-            opp_before = 0
-            for r in range(BOARD_SIZE):
-                for c in range(BOARD_SIZE):
-                    if self.board[r][c] == opponent:
-                        opp_before = max(opp_before, self._count_consecutive(r, c, opponent))
-            self.board[row][col] = player  # đặt lại
+        # 2. Defensive rewards (phòng thủ) - QUAN TRỌNG!
+        # Kiểm tra xem nước đi này có chặn được đối thủ không
+        self.board[row][col] = EMPTY  # Tạm bỏ nước đi để test
+        
+        # Giả sử đối thủ đánh vào ô này
+        self.board[row][col] = opponent
+        opp_len = self._count_consecutive(row, col, opponent)
+        
+        if opp_len >= WIN_LENGTH:
+            reward += REWARD_BLOCK_WIN  # +0.5 - Chặn nước thắng!
+        elif opp_len >= 3:
+            if self._has_open_ends(row, col, opponent, opp_len):
+                reward += REWARD_BLOCK_3  # +0.2 - Chặn 3 quân nguy hiểm
+        
+        # Khôi phục nước đi thực
+        self.board[row][col] = player
 
-            if opp_before >= WIN_LENGTH - 1:
-                # Vừa chặn được chuỗi WIN_LENGTH-1 của đối thủ
-                reward += REWARD_BLOCK_WIN
-            elif opp_before >= 3:
-                reward += REWARD_BLOCK_3
+        # 3. Small penalty cho nước đi xa trung tâm (chỉ khi không có reward khác)
+        if reward == 0.0:
+            center = BOARD_SIZE // 2
+            dist_from_center = abs(row - center) + abs(col - center)
+            if dist_from_center > 4:
+                reward -= 0.01
+        else:
+            reward += REWARD_STEP  # phạt nhẹ mọi nước đi để học đánh nhanh
 
         return reward, False

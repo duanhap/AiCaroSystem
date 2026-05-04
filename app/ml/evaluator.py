@@ -18,38 +18,38 @@ def _run_single_side(agent_x: QAgent, agent_o: QAgent, n_games: int, count_wins_
     for _ in range(n_games):
         state = env.reset()
         done = False
+        winner = None  # "x", "o", hoặc "draw"
 
         while not done:
             valid = env.get_valid_actions()
             if not valid:
-                draws += 1
+                winner = "draw"
                 break
 
             # X đánh
             action = agent_x.choose_action(state, valid, greedy=True)
             state, reward, done = env.step(action)
             if done:
-                if reward == 1.0:
-                    wins += 1 if count_wins_for == "x" else 0
-                    losses += 1 if count_wins_for == "o" else 0
-                else:
-                    draws += 1
+                winner = "x" if reward == 1.0 else "draw"
                 break
 
             valid = env.get_valid_actions()
             if not valid:
-                draws += 1
+                winner = "draw"
                 break
 
             # O đánh
             action = agent_o.choose_action(state, valid, greedy=True)
             state, reward, done = env.step(action)
             if done:
-                if reward == 1.0:
-                    wins += 1 if count_wins_for == "o" else 0
-                    losses += 1 if count_wins_for == "x" else 0
-                else:
-                    draws += 1
+                winner = "o" if reward == 1.0 else "draw"
+
+        if winner == count_wins_for:
+            wins += 1
+        elif winner == "draw":
+            draws += 1
+        else:
+            losses += 1
 
     return {"wins": wins, "losses": losses, "draws": draws}
 

@@ -101,15 +101,20 @@ async function startGame() {
   const res = await fetch('/game/pve/start', { method: 'POST', body: fd });
   const data = await res.json();
   gameId = data.game_id;
-  myTurn = (playerSide === 'X');
   gameOver = false;
   lastAiAction = data.ai_action;
+
+  // Nếu AI đánh trước (player chọn O) → myTurn = true sau khi AI đánh xong
+  // Nếu player đánh trước (player chọn X) → myTurn = true ngay
+  myTurn = true;  // Luôn true sau khi start, vì AI đã đánh xong (nếu cần)
 
   document.getElementById('setupPanel').style.display = 'none';
   document.getElementById('gamePanel').style.display = 'block';
   renderBoard(data.board, data.ai_action);
   updateStatus();
-  logMove(data.ai_action, playerSide === 'X' ? 'O' : 'X', true);
+  if (data.ai_action !== null) {
+    logMove(data.ai_action, playerSide === 'X' ? 'O' : 'X', true);
+  }
 }
 
 function renderBoard(board, highlightAction = null) {
@@ -127,29 +132,56 @@ async function handleClick(action) {
   const cell = document.getElementById(`cell-${action}`);
   if (cell.classList.contains('taken')) return;
 
-  setLoading(true);
+  myTurn = false;  // Khóa ngay để tránh double-click
+
+  // ── Hiện nước của player NGAY LẬP TỨC trước khi gọi API ──
+  const playerSymbol = playerSide === 'X' ? '✕' : '○';
+  cell.textContent = playerSymbol;
+  cell.className = `cell taken ${playerSide} last-move`;
+  logMove(action, playerSide, false);
+  document.getElementById('statusText').textContent = '⏳ AI đang suy nghĩ...';
+  document.getElementById('statusText').style.color = 'var(--text-muted)';
+
   const fd = new FormData();
   fd.append('game_id', gameId);
   fd.append('action', action);
-  const res = await fetch('/game/pve/move', { method: 'POST', body: fd });
-  const data = await res.json();
-  setLoading(false);
+  
+  try {
+    const res = await fetch('/game/pve/move', { method: 'POST', body: fd });
+    const data = await res.json();
+    
+    if (data.error) { 
+      // Rollback nước vừa hiện
+      cell.textContent = '';
+      cell.className = 'cell';
+      alert(data.error); 
+      myTurn = true;
+      updateStatus();
+      return; 
+    }
 
-  if (data.error) { alert(data.error); return; }
+    // Render board đầy đủ sau khi AI đánh xong
+    const board = data.ai_move ? data.ai_move.board : data.player_move.board;
+    const highlightAction = data.ai_move ? data.ai_move.action : action;
+    renderBoard(board, highlightAction);
 
-  const board = data.ai_move ? data.ai_move.board : data.player_move.board;
-  renderBoard(board, data.ai_move?.action ?? null);
+    if (data.ai_move) {
+      logMove(data.ai_move.action, playerSide === 'X' ? 'O' : 'X', true);
+    }
 
-  // Highlight nước người chơi
-  document.getElementById(`cell-${action}`).classList.add('last-move');
-
-  logMove(action, playerSide, false);
-  if (data.ai_move) logMove(data.ai_move.action, playerSide === 'X' ? 'O' : 'X', true);
-
-  if (data.done) {
-    gameOver = true;
-    showResult(data.winner);
-  } else {
+    if (data.done) {
+      gameOver = true;
+      showResult(data.winner);
+    } else {
+      myTurn = true;
+      updateStatus();
+    }
+  } catch (err) {
+    console.error('Error:', err);
+    // Rollback nước vừa hiện
+    cell.textContent = '';
+    cell.className = 'cell';
+    alert('Lỗi kết nối server');
     myTurn = true;
     updateStatus();
   }

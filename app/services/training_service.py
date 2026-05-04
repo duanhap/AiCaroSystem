@@ -185,13 +185,15 @@ def commit_training_result(db: Session, result: dict, action: str) -> Optional[o
     - 'discard': bỏ qua, không lưu
     """
     if action == "discard":
-        # Xóa checkpoint tạm nếu có
+        # Xóa checkpoint tạm nếu có — phải xóa training_logs trước (FK constraint)
         if result.get("temp_cp_id"):
-            tmp = db.query(__import__("app.models.checkpoint", fromlist=["Checkpoint"]).Checkpoint)\
-                    .filter_by(id=result["temp_cp_id"]).first()
+            from app.models.checkpoint import Checkpoint as CpModel
+            from app.models.training_log import TrainingLog as LogModel
+            db.query(LogModel).filter_by(checkpoint_id=result["temp_cp_id"]).delete()
+            tmp = db.query(CpModel).filter_by(id=result["temp_cp_id"]).first()
             if tmp:
                 db.delete(tmp)
-                db.commit()
+            db.commit()
         return None
 
     cp = save_checkpoint(

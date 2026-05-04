@@ -370,6 +370,26 @@ function toggleConvergence() {
   document.getElementById('convergenceFields').classList.toggle('d-none', !enabled);
 }
 
+// Auto-load game IDs từ game_stats page nếu có
+window.addEventListener('DOMContentLoaded', () => {
+  const ids = sessionStorage.getItem('offline_game_ids');
+  const tab = new URLSearchParams(window.location.search).get('tab');
+  if (ids || tab === 'offline') {
+    // Switch sang tab offline
+    document.querySelectorAll('.tab-pill').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-pill')[1].classList.add('active');
+    document.getElementById('tab-selfplay').classList.add('d-none');
+    document.getElementById('tab-offline').classList.remove('d-none');
+    if (ids) {
+      document.getElementById('of_game_ids').value = ids;
+      sessionStorage.removeItem('offline_game_ids');
+      // Highlight field để user biết đã được điền
+      document.getElementById('of_game_ids').style.borderColor = 'var(--accent2)';
+      setTimeout(() => document.getElementById('of_game_ids').style.borderColor = '', 2000);
+    }
+  }
+});
+
 function startOffline() {
   const params = new URLSearchParams({
     base_version: document.getElementById('of_base').value,
@@ -439,7 +459,10 @@ function showResult(data, prefix) {
     document.getElementById('resWRV').textContent = data.win_rate_vs_version != null ? (data.win_rate_vs_version*100).toFixed(1)+'%' : '–';
     if (data.stop_reason) {
       document.getElementById('stopReasonDiv').textContent = '⚡ Dừng sớm: ' +
-        (data.stop_reason === 'win_rate_target' ? 'Đạt win rate target' : 'Q-table hội tụ');
+        (data.stop_reason === 'win_rate_target' ? 'Đạt win rate target' :
+         data.stop_reason === 'manual_stop' ? 'Người dùng dừng thủ công' :
+         data.stop_reason === 'q_converged' ? 'Q-table hội tụ' :
+         data.stop_reason);
     }
   } else {
     document.getElementById('offlineProgressPanel').classList.add('d-none');
