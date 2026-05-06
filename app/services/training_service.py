@@ -67,19 +67,15 @@ def start_self_play(
     temp_cp_id = [None]
 
     def progress_handler(entry):
-        # Lần đầu tạo checkpoint tạm — dùng timestamp để tránh duplicate
         if temp_cp_id[0] is None:
             tmp_version = f"{new_version}_tmp_{int(time.time())}"
-            # Xóa các _tmp cũ của cùng new_version nếu còn sót (xóa logs trước)
+            # Xóa các _tmp cũ của cùng new_version nếu còn sót
             from app.models.checkpoint import Checkpoint as CpModel
-            from app.models.training_log import TrainingLog as LogModel
             old_tmps = db.query(CpModel).filter(
                 CpModel.version.like(f"{new_version}_tmp%")
             ).all()
             for old in old_tmps:
-                db.query(LogModel).filter(LogModel.checkpoint_id == old.id).delete()
-                db.delete(old)
-            db.commit()
+                checkpoint_repo.delete(db, old.version)  # delete tự xóa logs trước
 
             cp = checkpoint_repo.create(
                 db,
@@ -185,15 +181,8 @@ def commit_training_result(db: Session, result: dict, action: str) -> Optional[o
     - 'discard': bỏ qua, không lưu
     """
     if action == "discard":
-        # Xóa checkpoint tạm nếu có — phải xóa training_logs trước (FK constraint)
         if result.get("temp_cp_id"):
-            from app.models.checkpoint import Checkpoint as CpModel
-            from app.models.training_log import TrainingLog as LogModel
-            db.query(LogModel).filter_by(checkpoint_id=result["temp_cp_id"]).delete()
-            tmp = db.query(CpModel).filter_by(id=result["temp_cp_id"]).first()
-            if tmp:
-                db.delete(tmp)
-            db.commit()
+            checkpoint_repo.delete_by_id(db, result["temp_cp_id"])
         return None
 
     cp = save_checkpoint(
@@ -210,16 +199,10 @@ def commit_training_result(db: Session, result: dict, action: str) -> Optional[o
         metadata=result.get("train_params"),
     )
 
-    # Cập nhật logs tạm sang checkpoint thật
+    # Cập nhật logs tạm sang checkpoint thật rồi xóa checkpoint tạm
     if result.get("temp_cp_id"):
-        db.query(__import__("app.models.training_log", fromlist=["TrainingLog"]).TrainingLog)\
-          .filter_by(checkpoint_id=result["temp_cp_id"])\
-          .update({"checkpoint_id": cp.id})
-        tmp = db.query(__import__("app.models.checkpoint", fromlist=["Checkpoint"]).Checkpoint)\
-                .filter_by(id=result["temp_cp_id"]).first()
-        if tmp:
-            db.delete(tmp)
-        db.commit()
+        training_log_repo.migrate_logs(db, result["temp_cp_id"], cp.id)
+        checkpoint_repo.delete_by_id(db, result["temp_cp_id"])
 
     if action == "deploy":
         from app.services.checkpoint_service import deploy_checkpoint

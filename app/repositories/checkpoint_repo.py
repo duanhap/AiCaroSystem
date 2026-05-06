@@ -10,6 +10,9 @@ def get_all(db: Session):
 def get_by_version(db: Session, version: str):
     return db.query(Checkpoint).filter(Checkpoint.version == version).first()
 
+def get_by_id(db: Session, checkpoint_id: int):
+    return db.query(Checkpoint).filter(Checkpoint.id == checkpoint_id).first()
+
 def get_deployed(db: Session):
     return db.query(Checkpoint).filter(Checkpoint.is_deployed == True).first()
 
@@ -33,6 +36,15 @@ def delete(db: Session, version: str):
     cp = get_by_version(db, version)
     if cp:
         # Xóa training_logs liên quan trước (tránh FK constraint)
+        from app.models.training_log import TrainingLog
+        db.query(TrainingLog).filter(TrainingLog.checkpoint_id == cp.id).delete()
+        db.delete(cp)
+        db.commit()
+    return cp
+
+def delete_by_id(db: Session, checkpoint_id: int):
+    cp = get_by_id(db, checkpoint_id)
+    if cp:
         from app.models.training_log import TrainingLog
         db.query(TrainingLog).filter(TrainingLog.checkpoint_id == cp.id).delete()
         db.delete(cp)

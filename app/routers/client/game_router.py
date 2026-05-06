@@ -22,7 +22,8 @@ from app.config import settings
 from app.ml.environment import CaroEnv
 from app.services.game_service import create_game, apply_move
 from app.services.ai_service import get_ai_move
-from app.repositories import checkpoint_repo, game_repo
+from app.services.checkpoint_service import get_deployed_version
+from app.repositories import game_repo
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -54,11 +55,11 @@ def home(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request)
     if not user:
         return RedirectResponse("/auth/login", status_code=302)
-    deployed = checkpoint_repo.get_deployed(db)
+    deployed = get_deployed_version(db)
     return templates.TemplateResponse("client/home.html", {
         "request": request,
         "user": user,
-        "ai_version": deployed.version if deployed else None,
+        "ai_version": deployed,
     })
 
 
@@ -67,12 +68,12 @@ def pve_page(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request)
     if not user:
         return RedirectResponse("/auth/login", status_code=302)
-    deployed = checkpoint_repo.get_deployed(db)
+    deployed = get_deployed_version(db)
     return templates.TemplateResponse("client/game.html", {
         "request": request,
         "user": user,
         "mode": "pve",
-        "ai_version": deployed.version if deployed else "Chưa có AI",
+        "ai_version": deployed if deployed else "Chưa có AI",
         "game_id": None,
     })
 

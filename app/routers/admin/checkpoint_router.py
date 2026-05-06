@@ -29,18 +29,19 @@ def checkpoints_page(request: Request, db: Session = Depends(get_db)):
 @router.post("/deploy")
 def deploy(version: str = Form(...), db: Session = Depends(get_db)):
     deploy_checkpoint(db, version)
-    from app.services.ai_service import invalidate_cache
-    invalidate_cache()
+    # Preload checkpoint mới vào cache ngay — user không phải chờ
+    from app.services.ai_service import get_ai_agent
+    get_ai_agent(db)
     return RedirectResponse("/admin/checkpoints/", status_code=303)
 
 
 @router.post("/undeploy")
 def undeploy(version: str = Form(...), db: Session = Depends(get_db)):
     from app.models.checkpoint import Checkpoint
+    from app.services.ai_service import invalidate_cache
     db.query(Checkpoint).filter(Checkpoint.version == version).update({"is_deployed": False})
     db.commit()
-    from app.services.ai_service import invalidate_cache
-    invalidate_cache()
+    invalidate_cache()  # Không có CP nào deploy → fallback random agent
     return RedirectResponse("/admin/checkpoints/", status_code=303)
 
 

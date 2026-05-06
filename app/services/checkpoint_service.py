@@ -48,3 +48,8 @@ def load_agent(db: Session, version: str) -> QAgent:
     agent = QAgent(epsilon=0.0)
     agent.load(cp.file_path)
     return agent
+
+def get_deployed_version(db: Session) -> str | None:
+    """Trả về tên version đang deploy, dùng để hiển thị trên UI."""
+    cp = checkpoint_repo.get_deployed(db)
+    return cp.version if cp else None

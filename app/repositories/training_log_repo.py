@@ -20,3 +20,10 @@ def get_logs_by_checkpoint(db: Session, checkpoint_id: int):
     return db.query(TrainingLog).filter(
         TrainingLog.checkpoint_id == checkpoint_id
     ).order_by(TrainingLog.episode).all()
+
+def migrate_logs(db: Session, from_checkpoint_id: int, to_checkpoint_id: int):
+    """Chuyển toàn bộ logs từ checkpoint tạm sang checkpoint thật."""
+    db.query(TrainingLog)\
+      .filter(TrainingLog.checkpoint_id == from_checkpoint_id)\
+      .update({"checkpoint_id": to_checkpoint_id})
+    db.commit()

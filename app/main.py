@@ -23,6 +23,19 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="AI Caro 7x7")
 
+
+@app.on_event("startup")
+def preload_ai_agent():
+    """Load checkpoint đang deploy vào memory ngay khi server khởi động.
+    User sẽ không phải chờ lần đầu chơi."""
+    from app.database import SessionLocal
+    from app.services.ai_service import get_ai_agent
+    db = SessionLocal()
+    try:
+        get_ai_agent(db)
+    finally:
+        db.close()
+
 # Middleware auth cho admin
 app.add_middleware(BaseHTTPMiddleware, dispatch=admin_auth_middleware)
 
